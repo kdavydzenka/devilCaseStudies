@@ -94,33 +94,33 @@ perform_analysis_rna <- function(input_data, method = "devil") {
   res
 }
 
-grange_annot <- function(input_data, data_path) {
-  counts <- input_data$counts
-  metadata <- input_data$metadata
-  grange <- input_data$grange
-  txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
-  grange_annot <- ChIPseeker::annotatePeak(
-    peak = grange,
-    tssRegion = c(-3000, 3000),
-    TxDb = txdb,
-    level = "gene",
-    assignGenomicAnnotation = TRUE,
-    genomicAnnotationPriority = c("Promoter", "5UTR", "3UTR", "Exon", "Intron",
-                                  "Downstream", "Intergenic"),
-    annoDb = "org.Hs.eg.db",
-    addFlankGeneInfo = FALSE,
-    flankDistance = 5000,
-    sameStrand = FALSE,
-    ignoreOverlap = FALSE,
-    ignoreUpstream = FALSE,
-    ignoreDownstream = FALSE,
-    overlap = "TSS",
-    verbose = TRUE,
-    columns = c("ENTREZID", "ENSEMBL", "SYMBOL", "GENENAME")
-  ) %>% as.data.frame()
-  tissue = "muscle"
-  return(list(counts=counts, metadata=metadata, grange=grange_annot, tissue=tissue))
-}
+#grange_annot <- function(input_data, data_path) {
+  #counts <- input_data$counts
+  #metadata <- input_data$metadata
+  #grange <- input_data$grange
+  #txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+  #grange_annot <- ChIPseeker::annotatePeak(
+    #peak = grange,
+    #tssRegion = c(-3000, 3000),
+    #TxDb = txdb,
+    #level = "gene",
+    #assignGenomicAnnotation = TRUE,
+    #genomicAnnotationPriority = c("Promoter", "5UTR", "3UTR", "Exon", "Intron",
+                                 # "Downstream", "Intergenic"),
+    #annoDb = "org.Hs.eg.db",
+    #addFlankGeneInfo = FALSE,
+    #flankDistance = 5000,
+    #sameStrand = FALSE,
+    #ignoreOverlap = FALSE,
+    #ignoreUpstream = FALSE,
+    #ignoreDownstream = FALSE,
+    #overlap = "TSS",
+    #verbose = TRUE,
+    #columns = c("ENTREZID", "ENSEMBL", "SYMBOL", "GENENAME")
+  #) %>% as.data.frame()
+  #tissue = "muscle"
+  #return(list(counts=counts, metadata=metadata, grange=grange_annot, tissue=tissue))
+#}
 
 #prepare_atac_input <- function(input_data) {
   #metadata <- input_data$metadata
@@ -191,5 +191,3 @@ grange_annot <- function(input_data, data_path) {
   #}
   #res
 #}
-
-input_data 
