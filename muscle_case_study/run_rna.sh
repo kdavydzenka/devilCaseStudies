@@ -1,4 +1,4 @@
-#!/bin/bash
+q()#!/bin/bash
 #SBATCH --partition=THIN
 #SBATCH --mem=200GB
 #SBATCH --time=8:00:00
