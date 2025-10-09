@@ -23,7 +23,7 @@ input_data <- prepare_rna_input(input_data)
 
 #time <- dplyr::tibble()
 m <- 'devil'
-for (m in c("devil", "nebula", 'glmGamPoi')) {
+for (m in c("nebula", 'glmGamPoi')) {
  # s <- Sys.time()
   de_res <- perform_analysis_rna(input_data, method = m)
   #e <- Sys.time()

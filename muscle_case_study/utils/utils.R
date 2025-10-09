@@ -64,7 +64,13 @@ perform_analysis_rna <- function(input_data, method = "devil") {
     metadata <- input_data$metadata
     counts <- as.matrix(input_data$counts)
     design_matrix <- model.matrix(~age_cluster, metadata)
-    fit <- devil::fit_devil(counts, design_matrix, verbose = T, size_factors = T)
+    fit <- devil::fit_devil(input_matrix = counts, 
+			    design_matrix = design_matrix,
+			    overdispersion = TRUE,
+			    offset = 1e-6, 
+			    size_factors = "normed_sum",
+			    parallel.cores = 1,
+			    verbose = T)
     clusters <- as.numeric(as.factor(metadata$sample))
     res <- devil::test_de(fit, contrast = c(0,1), clusters = clusters, max_lfc = Inf)
     
