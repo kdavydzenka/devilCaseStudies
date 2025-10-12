@@ -99,7 +99,7 @@ perform_analysis_rna <- function(input_data, method = "devil") {
     metadata <- input_data$metadata
     counts <- as.matrix(input_data$counts)
     counts <- round(counts)
-    design_matrix <- model.matrix(~ 0 + age_cluster, metadata)
+    design_matrix <- model.matrix(~age_cluster, metadata)
     fit <- glmGamPoi::glm_gp(counts, design_matrix, size_factors = T, verbose = T)
     contrast <- make_contrast(design_matrix, from = "age_cluster0", to = "age_cluster1")
     res <- glmGamPoi::test_de(fit, contrast = contrast)
@@ -109,7 +109,7 @@ perform_analysis_rna <- function(input_data, method = "devil") {
     metadata <- input_data$metadata
     counts <- as.matrix(input_data$counts)
     counts <- round(counts)
-    design_matrix <- model.matrix(~ 0 + age_cluster, metadata)
+    design_matrix <- model.matrix(~age_cluster, metadata)
     metadata$patient <- as.numeric(as.factor(metadata$sample))
     sf <- devil:::calculate_sf(counts)
     #data_g = group_cell(count=counts,id=metadata$orig.ident,pred=design_matrix)

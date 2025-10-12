@@ -9,7 +9,7 @@ set.seed(12345)
 
 ## Input data
 dataset_name <- "MuscleRNA"
-data_path <- "/orfeo/LTS/CDSLab/LT_storage/kdavydzenka/sc_devil/data/muscle/rna/seurat_rna_adj.RDS"
+data_path <- "/orfeo/LTS/CDSLab/LT_storage/kdavydzenka/sc_devil/data/muscle/rna/seurat_counts_rna.RDS"
 
 
 if (!(file.exists(paste0("results/", dataset_name)))) {
