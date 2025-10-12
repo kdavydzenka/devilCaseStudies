@@ -1,5 +1,5 @@
 rm(list=ls())
-pkgs <- c("ggplot2", "dplyr","tidyr","tibble","reshape2", "Seurat", "glmGamPoi", "devil", "nebula")
+pkgs <- c("ggplot2", "dplyr", "tidyr", "tibble", "reshape2", "Seurat", "glmGamPoi", "devil", "nebula", "Matrix")
 sapply(pkgs, require, character.only = TRUE)
 
 setwd("/orfeo/cephfs/scratch/cdslab/kdavydzenka/sc_devil/devilCaseStudies/muscle_case_study/")
@@ -23,7 +23,7 @@ input_data <- prepare_rna_input(input_data)
 
 #time <- dplyr::tibble()
 m <- 'devil'
-for (m in c("nebula", 'glmGamPoi')) {
+for (m in c("devil", "glmGamPoi", "nebula")) {
  # s <- Sys.time()
   de_res <- perform_analysis_rna(input_data, method = m)
   #e <- Sys.time()
