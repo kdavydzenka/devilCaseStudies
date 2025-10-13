@@ -61,18 +61,18 @@ perform_analysis_rna <- function(input_data, method = "devil") {
   if (!(method %in% c('devil', "glmGamPoi", 'nebula'))) {stop('method not recognized')}
   
   if (method == 'devil') {
-    make_contrast <- function(design, from, to) {
-      stopifnot(from %in% colnames(design), to %in% colnames(design))
-      c <- rep(0, ncol(design)); names(c) <- colnames(design)
-      c[from] <-  1
-      c[to]   <- -1
-      as.numeric(c)
-    }
+    #make_contrast <- function(design, from, to) {
+      #stopifnot(from %in% colnames(design), to %in% colnames(design))
+      #c <- rep(0, ncol(design)); names(c) <- colnames(design)
+      #c[from] <-  1
+      #c[to]   <- -1
+      #as.numeric(c)
+    #}
 
     metadata <- input_data$metadata
     counts <- as.matrix(input_data$counts)
     counts <- round(counts)
-    design_matrix <- model.matrix(~ 0 + age_cluster, metadata)
+    design_matrix <- model.matrix(~age_cluster, metadata)
     fit <- devil::fit_devil(input_matrix = counts, 
 			    design_matrix = design_matrix,
 			    overdispersion = TRUE,
@@ -81,28 +81,28 @@ perform_analysis_rna <- function(input_data, method = "devil") {
 			    parallel.cores = 1,
 			    verbose = T)
     clusters <- as.numeric(as.factor(metadata$sample))
-    contrast <- make_contrast(design_matrix, from = "age_cluster0", to = "age_cluster1")
+    #contrast <- make_contrast(design_matrix, from = "age_cluster0", to = "age_cluster1")
 
     res <- devil::test_de(fit, 
-			  contrast = contrast, 
+			  contrast = c(0,1),
 			  clusters = clusters, 
 			  max_lfc = 10)
     
   } else if (method == "glmGamPoi") {
-    make_contrast <- function(design, from, to) {
-     stopifnot(from %in% colnames(design), to %in% colnames(design))
-     c <- rep(0, ncol(design)); names(c) <- colnames(design)
-     c[from] <-  1
-     c[to]   <- -1
-     as.numeric(c)
-    }
+    #make_contrast <- function(design, from, to) {
+     #stopifnot(from %in% colnames(design), to %in% colnames(design))
+     #c <- rep(0, ncol(design)); names(c) <- colnames(design)
+     #c[from] <-  1
+     #c[to]   <- -1
+     #as.numeric(c)
+    #}
     metadata <- input_data$metadata
     counts <- as.matrix(input_data$counts)
     counts <- round(counts)
     design_matrix <- model.matrix(~age_cluster, metadata)
     fit <- glmGamPoi::glm_gp(counts, design_matrix, size_factors = T, verbose = T)
-    contrast <- make_contrast(design_matrix, from = "age_cluster0", to = "age_cluster1")
-    res <- glmGamPoi::test_de(fit, contrast = contrast)
+    #contrast <- make_contrast(design_matrix, from = age_cluster0", to = "age_cluster1")
+    res <- glmGamPoi::test_de(fit, contrast = c(0,1))
     res <- res %>% select(name, pval, adj_pval, lfc)
     
   } else if (method == 'nebula') {
