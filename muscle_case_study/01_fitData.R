@@ -27,7 +27,7 @@ for (m in c("devil", "glmGamPoi")) {
  # s <- Sys.time()
   de_res <- perform_analysis_rna(input_data, method = m)
   #e <- Sys.time()
-  saveRDS(de_res, paste0('results/', dataset_name, '/new/', m, '_age_rna', '.RDS'))
+  saveRDS(de_res, paste0('results/', dataset_name, '/new/', m, '_age_cellType_rna', '.RDS'))
   #time <- dplyr::bind_rows(time, dplyr::tibble(method = m, delta_time = e - s))
   #print(time)
 }

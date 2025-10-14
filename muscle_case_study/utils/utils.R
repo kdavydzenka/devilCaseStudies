@@ -25,6 +25,7 @@ prepare_rna_input <- function(input_data) {
   metadata <- input_data$metadata
   metadata <- metadata[ (metadata$tech %in% c("snRNA") & metadata$Annotation %in% c("Type I", "Type II")) , ]
   metadata <- metadata %>% dplyr::rename(cell_type = Annotation)
+  metadata$cell_type <- as.factor(metadata$cell_type)
   metadata <- metadata %>%
     mutate(age_cluster = case_when(
       age_pop == "old_pop"  ~ '1',
@@ -72,7 +73,7 @@ perform_analysis_rna <- function(input_data, method = "devil") {
     metadata <- input_data$metadata
     counts <- as.matrix(input_data$counts)
     counts <- round(counts)
-    design_matrix <- model.matrix(~ 0 + age_cluster, metadata)
+    design_matrix <- model.matrix(~ 0 + age_cluster + cell_type, metadata)
     fit <- devil::fit_devil(input_matrix = counts, 
 			    design_matrix = design_matrix,
 			    overdispersion = TRUE,
@@ -99,7 +100,7 @@ perform_analysis_rna <- function(input_data, method = "devil") {
     metadata <- input_data$metadata
     counts <- as.matrix(input_data$counts)
     counts <- round(counts)
-    design_matrix <- model.matrix(~ 0 + age_cluster, metadata)
+    design_matrix <- model.matrix(~ 0 + age_cluster + cell_type, metadata)
     fit <- glmGamPoi::glm_gp(counts, design_matrix, size_factors = T, verbose = T)
     contrast <- make_contrast(design_matrix, from = "age_cluster0", to = "age_cluster1")
     res <- glmGamPoi::test_de(fit, contrast = contrast)
