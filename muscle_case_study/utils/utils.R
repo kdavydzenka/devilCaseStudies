@@ -58,70 +58,142 @@ prepare_rna_input <- function(input_data) {
 }
 
 
-perform_analysis_rna <- function(input_data, method = "devil") {
-  if (!(method %in% c('devil', "glmGamPoi", 'nebula'))) {stop('method not recognized')}
-  
+subsample_balanced_rna <- function(input_data, seed = 123) {
+  set.seed(seed)
+
+  metadata <- input_data$metadata
+  counts <- input_data$counts
+
+  # Verify that required columns exist
+  if (!all(c("age_cluster", "cell_type") %in% colnames(metadata))) {
+    stop("metadata must contain 'age_cluster' and 'cell_type' columns")
+  }
+
+  # Determine smallest group size across (age_cluster, cell_type)
+  group_sizes <- metadata %>%
+    dplyr::count(age_cluster, cell_type)
+
+  min_cells <- min(group_sizes$n)
+  message("Balancing to ", min_cells, " cells per (age_cluster × cell_type) group")
+
+  # Subsample each group
+  balanced_metadata <- metadata %>%
+    dplyr::group_by(age_cluster, cell_type) %>%
+    dplyr::sample_n(min_cells) %>%
+    dplyr::ungroup()
+
+  # Subset count matrix
+  balanced_counts <- counts[, rownames(balanced_metadata), drop = FALSE]
+
+  list(
+    counts = balanced_counts,
+    metadata = balanced_metadata,
+    tissue = input_data$tissue
+  )
+}
+
+
+perform_analysis_rna <- function(input_data, 
+                                 method = "devil", 
+                                 design_type = "age_only",
+                                 cell_type_of_interest = NULL) {
+
+  if (!(method %in% c('devil', "glmGamPoi", 'nebula'))) {
+    stop('method not recognized')
+  }
+
+  metadata <- input_data$metadata
+  counts <- as.matrix(input_data$counts)
+  counts <- round(counts)
+
+  ## Design Matrix
+  design_matrix <- switch(
+    design_type,
+    "age_only" = model.matrix(~ age_cluster, metadata),
+    "age_plus_celltype" = model.matrix(~ age_cluster + cell_type, metadata),
+    "interaction" = model.matrix(~ age_cluster * cell_type, metadata),
+    stop("design_type must be one of: 'age_only', 'age_plus_celltype', 'interaction'")
+  )
+
+  ## Make contrast helper 
+  make_contrast <- function(design, from, to = NULL) {
+    c <- rep(0, ncol(design)); names(c) <- colnames(design)
+    if (!is.null(to)) {
+      stopifnot(from %in% names(c), to %in% names(c))
+      c[from] <- 1; c[to] <- -1
+    } else {
+      stopifnot(from %in% names(c))
+      c[from] <- 1
+    }
+    as.numeric(c)
+  }
+
+  ## Fit and test 
   if (method == 'devil') {
-    make_contrast <- function(design, from, to) {
-      stopifnot(from %in% colnames(design), to %in% colnames(design))
-      c <- rep(0, ncol(design)); names(c) <- colnames(design)
-      c[from] <-  1
-      c[to]   <- -1
-      as.numeric(c)
-    }
+    fit <- devil::fit_devil(
+      input_matrix = counts,
+      design_matrix = design_matrix,
+      overdispersion = TRUE,
+      offset = 1e-6,
+      size_factors = "normed_sum",
+      parallel.cores = 1,
+      verbose = TRUE
+    )
 
-    metadata <- input_data$metadata
-    counts <- as.matrix(input_data$counts)
-    counts <- round(counts)
-    design_matrix <- model.matrix(~ 0 + age_cluster + cell_type, metadata)
-    fit <- devil::fit_devil(input_matrix = counts, 
-			    design_matrix = design_matrix,
-			    overdispersion = TRUE,
-			    offset = 1e-6, 
-			    size_factors = "normed_sum",
-			    parallel.cores = 1,
-			    verbose = T)
     clusters <- as.numeric(as.factor(metadata$sample))
-    contrast <- make_contrast(design_matrix, from = "age_cluster0", to = "age_cluster1")
 
-    res <- devil::test_de(fit, 
-			  contrast = contrast,
-			  clusters = clusters, 
-			  max_lfc = 10)
-    
-  } else if (method == "glmGamPoi") {
-    make_contrast <- function(design, from, to) {
-     stopifnot(from %in% colnames(design), to %in% colnames(design))
-     c <- rep(0, ncol(design)); names(c) <- colnames(design)
-     c[from] <-  1
-     c[to]   <- -1
-     as.numeric(c)
+    # Define contrasts depending on design_type
+    if (design_type == "age_only" || design_type == "age_plus_celltype") {
+      contrast <- make_contrast(design_matrix, from = "age_cluster0", to = "age_cluster1")
+    } else if (design_type == "interaction") {
+      if (is.null(cell_type_of_interest)) {
+        stop("Please specify cell_type_of_interest for interaction design")
+      }
+      # Find correct column name for the interaction term
+      interaction_term <- paste0("age_cluster1:cell_type", cell_type_of_interest)
+      if (!(interaction_term %in% colnames(design_matrix))) {
+        stop(paste("Interaction term", interaction_term, "not found in design matrix"))
+      }
+      # Contrast for age effect within that cell type
+      contrast <- make_contrast(design_matrix, from = "age_cluster1", to = interaction_term)
     }
-    metadata <- input_data$metadata
-    counts <- as.matrix(input_data$counts)
-    counts <- round(counts)
-    design_matrix <- model.matrix(~ 0 + age_cluster + cell_type, metadata)
-    fit <- glmGamPoi::glm_gp(counts, design_matrix, size_factors = T, verbose = T)
-    contrast <- make_contrast(design_matrix, from = "age_cluster0", to = "age_cluster1")
+
+    res <- devil::test_de(
+      fit,
+      contrast = contrast,
+      clusters = clusters,
+      max_lfc = 10
+    )
+
+  } else if (method == "glmGamPoi") {
+
+    fit <- glmGamPoi::glm_gp(counts, design_matrix, size_factors = TRUE, verbose = TRUE)
+
+    if (design_type == "age_only" || design_type == "age_plus_celltype") {
+      contrast <- make_contrast(design_matrix, from = "age_cluster0", to = "age_cluster1")
+    } else if (design_type == "interaction") {
+      if (is.null(cell_type_of_interest)) stop("Please specify cell_type_of_interest for interaction design")
+      interaction_term <- paste0("age_cluster1:cell_type", cell_type_of_interest)
+      contrast <- make_contrast(design_matrix, from = "age_cluster1", to = interaction_term)
+    }
+
     res <- glmGamPoi::test_de(fit, contrast = contrast)
-    res <- res %>% select(name, pval, adj_pval, lfc)
-    
+    res <- res %>% dplyr::select(name, pval, adj_pval, lfc)
+
   } else if (method == 'nebula') {
-    metadata <- input_data$metadata
-    counts <- as.matrix(input_data$counts)
-    counts <- round(counts)
-    design_matrix <- model.matrix(~age_cluster, metadata)
+
     metadata$patient <- as.numeric(as.factor(metadata$sample))
     sf <- devil:::calculate_sf(counts)
-    #data_g = group_cell(count=counts,id=metadata$orig.ident,pred=design_matrix)
     fit <- nebula::nebula(counts, id = metadata$patient, pred = design_matrix, offset = sf)
-    res <- dplyr::tibble(
-      name = fit$summary$gene,
-      pval = fit$summary$p_age_cluster1,
-      adj_pval = p.adjust(fit$summary$p_age_cluster1, "BH"),
-      lfc = fit$summary$logFC_age_cluster1
-    )
+    res <- fit$summary
+    #res <- dplyr::tibble(
+      #name = fit$summary$gene,
+      #pval = fit$summary$p_age_cluster1,
+      #adj_pval = p.adjust(fit$summary$p_age_cluster1, "BH"),
+      #lfc = fit$summary$logFC_age_cluster1
+    #)
   }
+
   res
 }
 
