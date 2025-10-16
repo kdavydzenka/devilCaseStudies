@@ -58,15 +58,15 @@ prepare_rna_input <- function(input_data) {
 }
 
 
-subsample_balanced_rna <- function(input_data, seed = 123) {
+subsample_balanced_cells <- function(input_data, seed = 123) {
   set.seed(seed)
 
   metadata <- input_data$metadata
   counts <- input_data$counts
 
-  # Verify that required columns exist
-  if (!all(c("age_cluster", "cell_type") %in% colnames(metadata))) {
-    stop("metadata must contain 'age_cluster' and 'cell_type' columns")
+  # Check that required columns exist
+  if (!all(c("age_pop", "cell_type") %in% colnames(metadata))) {
+    stop("metadata must contain 'age_pop' and 'cell_type' columns")
   }
 
   # Determine smallest group size across (age_cluster, cell_type)
@@ -76,11 +76,13 @@ subsample_balanced_rna <- function(input_data, seed = 123) {
   min_cells <- min(group_sizes$n)
   message("Balancing to ", min_cells, " cells per (age_cluster × cell_type) group")
 
-  # Subsample each group
+  # Subsample each group to the same number of cells
   balanced_metadata <- metadata %>%
     dplyr::group_by(age_cluster, cell_type) %>%
     dplyr::sample_n(min_cells) %>%
     dplyr::ungroup()
+  
+  rownames(balanced_metadata) <- balanced_metadata$cell_index
 
   # Subset count matrix
   balanced_counts <- counts[, rownames(balanced_metadata), drop = FALSE]
@@ -128,6 +130,11 @@ perform_analysis_rna <- function(input_data,
     as.numeric(c)
   }
 
+  age_cols <- grep("^age_cluster1", colnames(design_matrix), value = TRUE)[1]
+
+  if (length(age_cols) == 0)
+    stop("No age_cluster columns found — check metadata$age_cluster levels.")
+  
   ## Fit and test 
   if (method == 'devil') {
     fit <- devil::fit_devil(
@@ -144,13 +151,13 @@ perform_analysis_rna <- function(input_data,
 
     # Define contrasts depending on design_type
     if (design_type == "age_only" || design_type == "age_plus_celltype") {
-      contrast <- make_contrast(design_matrix, from = "age_cluster0", to = "age_cluster1")
+      contrast <- make_contrast(design_matrix, from = age_cols[1])
     } else if (design_type == "interaction") {
       if (is.null(cell_type_of_interest)) {
         stop("Please specify cell_type_of_interest for interaction design")
       }
       # Find correct column name for the interaction term
-      interaction_term <- paste0("age_cluster1:cell_type", cell_type_of_interest)
+      interaction_term <- paste0(age_cols, ":cell_type", cell_type_of_interest)
       if (!(interaction_term %in% colnames(design_matrix))) {
         stop(paste("Interaction term", interaction_term, "not found in design matrix"))
       }
@@ -170,10 +177,10 @@ perform_analysis_rna <- function(input_data,
     fit <- glmGamPoi::glm_gp(counts, design_matrix, size_factors = TRUE, verbose = TRUE)
 
     if (design_type == "age_only" || design_type == "age_plus_celltype") {
-      contrast <- make_contrast(design_matrix, from = "age_cluster0", to = "age_cluster1")
+      contrast <- make_contrast(design_matrix, from = age_cols[1])
     } else if (design_type == "interaction") {
       if (is.null(cell_type_of_interest)) stop("Please specify cell_type_of_interest for interaction design")
-      interaction_term <- paste0("age_cluster1:cell_type", cell_type_of_interest)
+      interaction_term <- paste0(age_cols, ":cell_type", cell_type_of_interest)
       contrast <- make_contrast(design_matrix, from = "age_cluster1", to = interaction_term)
     }
 

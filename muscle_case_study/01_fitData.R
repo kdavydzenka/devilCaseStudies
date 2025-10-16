@@ -19,15 +19,28 @@ if (!(file.exists(paste0("results/", dataset_name)))) {
 input_data <- read_data(dataset_name, data_path)
 input_data <- prepare_rna_input(input_data)
 
-### RNA analysis 
+
+### RNA analysis ###
 
 #time <- dplyr::tibble()
 m <- 'devil'
-for (m in c("nebula")) {
+for (m in c("devil", "glmGamPoi")) {
  # s <- Sys.time()
-  de_res <- perform_analysis_rna(input_data, method = m)
+
+  balanced_input <- subsample_balanced_cells(input_data)
+
+  # age effect across all cells
+  de_res <- perform_analysis_rna(balanced_input, method = m, design_type = "age_only")
+
+  # age effect controlling for cell type
+  #de_res <- perform_analysis_rna(input_data, method = m, design_type = "age_plus_celltype")
+
+
+  # Test age effect within a specific cell type
+  #de_res <- perform_analysis_rna(input_data, method = m, design_type = "interaction", cell_type_of_interest = "Type II")
+
   #e <- Sys.time()
-  saveRDS(de_res, paste0('results/', dataset_name, '/new/', m, '_age_cellType_rna', '.RDS'))
+  saveRDS(de_res, paste0('results/', dataset_name, '/subsampled/', m, '_age_rna', '.RDS'))
   #time <- dplyr::bind_rows(time, dplyr::tibble(method = m, delta_time = e - s))
   #print(time)
 }
