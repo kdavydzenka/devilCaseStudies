@@ -149,7 +149,7 @@ perform_analysis_rna <- function(input_data,
 
     clusters <- as.numeric(as.factor(metadata$sample))
 
-    # Define contrasts depending on design_type
+    # iDefine contrasts depending on design_type
     if (design_type == "age_only" || design_type == "age_plus_celltype") {
       contrast <- make_contrast(design_matrix, from = age_cols[1])
     } else if (design_type == "interaction") {
@@ -191,7 +191,10 @@ perform_analysis_rna <- function(input_data,
 
     metadata$patient <- as.numeric(as.factor(metadata$sample))
     sf <- devil:::calculate_sf(counts)
-    fit <- nebula::nebula(counts, id = metadata$patient, pred = design_matrix, offset = sf)
+    data_g = group_cell(count = counts, id = metadata$patient, pred = design_matrix, offset = sf)
+    print(str(data_g))
+    fit <- nebula::nebula(data_g$count, id = data_g$id, pred = data_g$pred, offset = data_g$offset)
+    #fit <- nebula::nebula(counts, id = metadata$patient, pred = design_matrix, offset = sf)
     res <- fit$summary
     #res <- dplyr::tibble(
       #name = fit$summary$gene,
