@@ -106,7 +106,7 @@ perform_analysis_rna <- function(input_data,
 
   metadata <- input_data$metadata
   
-  counts <- as.matrix(input_data$counts[rownames(input_data$counts) %in% c("ID3", "CAMTA1-DT", "DOLPP1", "ISG15", "VEGFC"),])
+  counts <- as.matrix(input_data$counts)
   counts <- round(counts)
 
   ## Design Matrix
