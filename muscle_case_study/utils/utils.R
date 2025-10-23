@@ -105,7 +105,8 @@ perform_analysis_rna <- function(input_data,
   }
 
   metadata <- input_data$metadata
-  counts <- as.matrix(input_data$counts)
+  
+  counts <- as.matrix(input_data$counts[rownames(input_data$counts) %in% c("ID3", "CAMTA1-DT", "DOLPP1", "ISG15", "VEGFC"),])
   counts <- round(counts)
 
   ## Design Matrix
@@ -137,6 +138,7 @@ perform_analysis_rna <- function(input_data,
   
   ## Fit and test 
   if (method == 'devil') {
+    
     fit <- devil::fit_devil(
       input_matrix = counts,
       design_matrix = design_matrix,
@@ -144,7 +146,11 @@ perform_analysis_rna <- function(input_data,
       offset = 1e-6,
       size_factors = "normed_sum",
       parallel.cores = 1,
-      verbose = TRUE
+      verbose = TRUE, 
+      init_overdispersion = NULL, 
+      max_iter = 500, 
+      tolerance = 1e-3, 
+      batch_size = 1
     )
 
     clusters <- as.numeric(as.factor(metadata$sample))
