@@ -24,23 +24,23 @@ input_data <- prepare_rna_input(input_data)
 
 #time <- dplyr::tibble()
 m <- 'devil'
-for (m in c("devil", "glmGamPoi", "nebula")) {
+for (m in c("devil")) {
  # s <- Sys.time()
 
-  #balanced_input <- subsample_balanced_cells(input_data)
+  balanced_input <- subsample_balanced_cells(input_data)
 
   # age effect across cells
-  de_res <- perform_analysis_rna(input_data, method = m, design_type = "age_only")
+  #de_res <- perform_analysis_rna(balanced_input, method = m, design_type = "age_only")
 
   # age effect + cell_type
-  #de_res <- perform_analysis_rna(input_data, method = m, design_type = "age_plus_celltype")
+  de_res <- perform_analysis_rna(balanced_input, method = m, design_type = "age_plus_celltype")
 
 
   # Test age effect controlling for cell type
   #de_res <- perform_analysis_rna(input_data, method = m, design_type = "interaction", cell_type_of_interest = "Type II")
 
   #e <- Sys.time()
-  saveRDS(de_res, paste0('results/', dataset_name, '/full/', m, '_age_rna', '.RDS'))
+  saveRDS(de_res, paste0('results/', dataset_name, '/subsampled/', m, '_age_cellType_rna', '.RDS'))
   #time <- dplyr::bind_rows(time, dplyr::tibble(method = m, delta_time = e - s))
   #print(time)
 }
