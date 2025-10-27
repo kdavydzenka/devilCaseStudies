@@ -24,23 +24,25 @@ input_data <- prepare_rna_input(input_data)
 
 #time <- dplyr::tibble()
 m <- 'devil'
-for (m in c("devil")) {
+for (m in c("devil", "glmGamPoi", "nebula")) {
  # s <- Sys.time()
 
-  balanced_input <- subsample_balanced_cells(input_data)
+  #balanced_input <- subsample_balanced_cells(input_data)
 
   # age effect across cells
-  #de_res <- perform_analysis_rna(balanced_input, method = m, design_type = "age_only")
+  #res_fit_age <- fit_de(input_data, method = m, design_type = "age_only")
 
-  # age effect + cell_type
-  de_res <- perform_analysis_rna(balanced_input, method = m, design_type = "age_plus_celltype")
-
-
-  # Test age effect controlling for cell type
-  #de_res <- perform_analysis_rna(input_data, method = m, design_type = "interaction", cell_type_of_interest = "Type II")
+  # Interaction - test age effect controlling for cell type
+  res_fit_interaction <- fit_de(input_data, method = m, design_type = "interaction")
+  
+  path_fit_res <- '/orfeo/cephfs/scratch/cdslab/kdavydzenka/sc_devil/results/muscle/new/'
+  
+  saveRDS(res_fit_interaction, paste0(path_fit_res, m, '_fit_interaction', '.RDS'))
+  
+  #saveRDS(res_fit_interaction, paste0('results/', dataset_name, '/subsampled/', m, '_age_cellType_rna', '.RDS'))
 
   #e <- Sys.time()
-  saveRDS(de_res, paste0('results/', dataset_name, '/subsampled/', m, '_age_cellType_rna', '.RDS'))
+  #saveRDS(de_res, paste0('results/', dataset_name, '/subsampled/', m, '_age_cellType_rna', '.RDS'))
   #time <- dplyr::bind_rows(time, dplyr::tibble(method = m, delta_time = e - s))
   #print(time)
 }
