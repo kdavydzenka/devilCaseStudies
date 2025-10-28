@@ -11,3 +11,4 @@ de_analysis/nullpower/*test*
 *.log
 *._*
 *.DS_Store
+muscle_case_study/results/MuscleRNA/fit/*devil*
