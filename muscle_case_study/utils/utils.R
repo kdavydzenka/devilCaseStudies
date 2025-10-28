@@ -210,7 +210,7 @@ de_test <- function(input_data,
     effects <- numeric(n_genes)
     p_values <- numeric(n_genes)
     
-    n_variables = sum(grepl("logFC", colnames(nebula_fit$summary)))
+    n_variables = sum(grepl("logFC", colnames(fit_res$summary)))
     
     if (length(contrast) != n_variables) {
       stop("Passed contrast with wrong number of elements.")
@@ -219,11 +219,11 @@ de_test <- function(input_data,
     for (gene_i in seq_len(n_genes)) {
       # Build covariance matrix
       cov <- matrix(NA, n_variables, n_variables)
-      cov[lower.tri(cov, diag = TRUE)] <- as.numeric(nebula_fit$covariance[gene_i, ])
+      cov[lower.tri(cov, diag = TRUE)] <- as.numeric(fit_res$covariance[gene_i, ])
       cov[upper.tri(cov)] <- t(cov)[upper.tri(cov)]
       
       # Compute the contrast effect
-      eff <- sum(contrast * nebula_fit$summary[gene_i, 1:n_variables])
+      eff <- sum(contrast * fit_res$summary[gene_i, 1:n_variables])
       
       # Compute p-value
       p <- pchisq(eff^2 / (t(contrast) %*% cov %*% contrast), df = 1, lower.tail = FALSE)
