@@ -6,6 +6,7 @@ de_analysis/nullpower/*test*
 *seurat.RDS
 .Rproj.user
 *.Rproj
+muscle_case_study/results/MuscleRNA/*fit*
 .Rhistory
 *dataset*
 *.log

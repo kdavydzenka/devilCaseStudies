@@ -10,11 +10,11 @@ sapply(pkgs, require, character.only = TRUE)
 
 ### MuscleRNA results ###
 
-methods <- c("devil")
-conditions <- c("age_cellType")
+methods <- c("devil", "glmGamPoi", "nebula")
+conditions <- c("age", "age_cellType", "interaction")
 
 read_rna <- function(method, condition, rename = TRUE) {
-  path <- glue::glue("results/MuscleRNA/full/{method}_{condition}_rna.RDS")
+  path <- glue::glue("results/MuscleRNA/subsampled/{method}_{condition}_rna.RDS")
   dat <- readRDS(path)
   if (rename && "name" %in% names(dat)) dat <- dat %>% rename(geneID = name)
   dat
@@ -38,12 +38,20 @@ rna_data$rna_nebula_age <- rna_data$rna_nebula_age %>%
   dplyr::select(geneID,pval,adj_pval,lfc)
 
 # nebula - age+cellType (subsampled)
-rna_nebula_age_cellType <- rna_data$rna_nebula_age_cellType %>%
+rna_data$rna_nebula_age_cellType <- rna_data$rna_nebula_age_cellType %>%
   dplyr::mutate(
     geneID = gene,  
     pval = `p_age_cluster1`,  
     adj_pval = p.adjust(`p_age_cluster1`, method = "BH"),
     lfc = `logFC_age_cluster1` / log(2)  
+  ) %>% 
+  dplyr::select(geneID,pval,adj_pval,lfc)
+
+# nebula - age+cellType (full)
+rna_data$rna_nebula_age_cellType <- rna_data$rna_nebula_age_cellType %>%
+  dplyr::mutate(
+    geneID = name,  
+    lfc = lfc / log(2)  
   ) %>% 
   dplyr::select(geneID,pval,adj_pval,lfc)
 
@@ -98,7 +106,7 @@ prep_rna_data <- function(data, method, lfc_col = "lfc", pval_col = "adj_pval") 
         !!pval_sym
       )
     ) %>%
-    filter(!geneID %in% outliers_to_remove)
+    dplyr::filter(!geneID %in% outliers_to_remove)
 }
 
 
@@ -107,10 +115,10 @@ prep_rna_data <- function(data, method, lfc_col = "lfc", pval_col = "adj_pval") 
 #rna_nebula$adj_pval[rna_nebula$adj_pval == 0] <- min(rna_nebula$adj_pval[rna_nebula$adj_pval != 0])
 #rna_glm$adj_pval[rna_glm$adj_pval == 0] <- min(rna_glm$adj_pval[rna_glm$adj_pval != 0])
 
-methods <- c("devil")
+methods <- c("devil", "glmGamPoi", "nebula")
 
 rna_join <- map_df(methods, function(m) {
-  prep_rna_data(rna_data[[glue("rna_{m}_age_cellType")]], m)
+  prep_rna_data(rna_data[[glue("rna_{m}_interaction")]], m)
 })
 
 rna_join <- rna_join %>%
@@ -124,7 +132,7 @@ rna_join <- rna_join %>%
   )
 
 
-p_age <- ggplot(rna_join, aes(x = lfc, y = -log10(adj_pval))) +
+p_interaction <- ggplot(rna_join, aes(x = lfc, y = -log10(adj_pval))) +
   geom_point(aes(color = DEtype), size = 1.5, alpha = 0.3) +
   scale_color_manual(values = de_colors) +
   geom_vline(xintercept = c(-lfc_cut, lfc_cut), linetype = "dashed", color = "black") +
@@ -138,34 +146,35 @@ p_age <- ggplot(rna_join, aes(x = lfc, y = -log10(adj_pval))) +
   labs(
     y = expression(-log[10]~adjusted~P[value]),
     color = "DE type",
-    title = "Interaction"
+    title = "Age + Cell Type"
   ) +
   guides(color = guide_legend(override.aes = list(alpha = 1, size = 2)))
 
 p_age
+p_age_cell
 p_interaction
 
-join_p <- (p_age / p_interaction)
+join_p <- (p_age / p_age_cell / p_interaction)
 
-ggsave("plot/revision/full/volcanos_age_int.png", dpi = 400, width = 12.0, height = 10.0, plot = join_p)
+ggsave("plot/revision/volcanos_subsampled_joint.png", dpi = 400, width = 12.0, height = 12.0, plot = join_p)
 
 
-### Compare in full lfc_age vs lfc_inter, pval_age vs pval_inter ###
+### Compare in full lfc_age vs lfc_age_cellType, pval_age vs pval_age_cellType ###
 
-compare_age_interaction <- function(method, data_list,
+compare_age_cell <- function(method, data_list,
                                     lfc_col = "lfc",
                                     pval_col = "adj_pval") {
   age <- data_list[[glue("rna_{method}_age")]]
-  inter <- data_list[[glue("rna_{method}_interaction")]]
+  age_cell <- data_list[[glue("rna_{method}_interaction")]]
   
   merged <- inner_join(
     age %>% select(geneID, lfc_age = all_of(lfc_col), pval_age = all_of(pval_col)),
-    inter %>% select(geneID, lfc_inter = all_of(lfc_col), pval_inter = all_of(pval_col)),
+    age_cell %>% select(geneID, lfc_cell = all_of(lfc_col), pval_cell = all_of(pval_col)),
     by = "geneID"
   )
   
   # Plot 1: log2FC comparison
-  p1 <- ggplot(merged, aes(x = lfc_age, y = lfc_inter)) +
+  p1 <- ggplot(merged, aes(x = lfc_age, y = lfc_cell)) +
     geom_point(alpha = 0.3, color = "black") +
     geom_smooth(method = "lm", se = T, color = "darkred") +
     labs(
@@ -176,7 +185,7 @@ compare_age_interaction <- function(method, data_list,
     theme_minimal()
   
   # Plot 2: adjusted p-value comparison 
-  p2 <- ggplot(merged, aes(x = -log10(pval_age), y = -log10(pval_inter))) +
+  p2 <- ggplot(merged, aes(x = -log10(pval_age), y = -log10(pval_cell))) +
     geom_point(alpha = 0.3, color = "black") +
     geom_smooth(method = "lm", se = T, color = "darkred") +
     labs(
@@ -193,7 +202,7 @@ compare_age_interaction <- function(method, data_list,
 # Run comparisons for all methods
 
 plots <- map(c("devil", "glmGamPoi", "nebula"),
-             ~compare_age_interaction(.x, rna_data))
+             ~compare_age_cell(.x, rna_data))
 names(plots) <- c("devil", "glmGamPoi", "nebula")
 
 # Access plots
@@ -218,5 +227,5 @@ final_plot <- (
 
 final_plot
 
-ggsave("plot/revision/full/scatter_full.png", dpi = 400, width = 10.0, height = 10.0, plot = final_plot)
+ggsave("plot/revision/scatter_full_age_vs_interaction.png", dpi = 400, width = 10.0, height = 10.0, plot = final_plot)
 
