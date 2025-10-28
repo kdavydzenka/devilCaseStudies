@@ -147,7 +147,7 @@ fit_de <- function(input_data,
     #print(str(data_g))
     #fit <- nebula::nebula(data_g$count, id = data_g$id, pred = data_g$pred, offset = data_g$offset)
     
-    fit <- nebula::nebula(counts, id = metadata$patient, pred = design_matrix, offset = sf)
+    fit <- nebula::nebula(counts, id = metadata$patient, pred = design_matrix, offset = sf, covariance=TRUE)
   
   }
 
@@ -156,61 +156,62 @@ fit_de <- function(input_data,
 
 
 de_test <- function(input_data,
-                    fit_res, 
-                    method = "devil", 
-                    design_type = "age_only"
-                    ) {
-  
-  if (!(method %in% c('devil', "glmGamPoi", 'nebula'))) {
-    stop('method not recognized')
+                    fit_res,
+                    method = "devil",
+                    design_test = "age_type1") {
+
+  # Check method validity
+  if (!(method %in% c('devil', 'glmGamPoi', 'nebula'))) {
+    stop('Method not recognized. Choose one of: devil, glmGamPoi, nebula.')
   }
-  
+
   metadata <- input_data$metadata
-  
-  ## Fit and test 
+  res_de <- NULL  # initialize result
+
+  # Define contrasts based on design
+  if (design_test == "age_type1") {
+    contrast <- c(0, 1, 0, 0)
+  } else if (design_test == "age_type2") {
+    contrast <- c(0, 1, 0, 1)
+  } else if (design_test == "interaction") {
+    contrast <- c(0, 0, 0, 1)
+  } else {
+    stop("design_test not recognized")
+  }
+
+  # DE test by method
   if (method == 'devil') {
-    
+
     clusters <- as.numeric(as.factor(metadata$sample))
-    
-    # Define contrasts 
-    
-    if (design_type == "age_only") {
-      
-      contrast <- c(0,1,0,0) 
-      
-    } else if (design_type == "interaction") {
-     
-      contrast <- c(0,0,0,1)
-    }
-    
+
     res_de <- devil::test_de(
       fit_res,
       contrast = contrast,
       clusters = clusters,
       max_lfc = 10
     )
-    
-  } else if (method == "glmGamPoi") {
-    
-    if (design_type == "age_only") {
-      
-      contrast <- c(0,1,0,0) 
-      
-    } else if (design_type == "interaction") {
-      
-      contrast <- c(0,0,0,1)
+
+  } else if (method == 'glmGamPoi') {
+
+    res_de <- glmGamPoi::test_de(
+      fit_res,
+      contrast = contrast
+    )
+
+    # Keep only key columns if available
+    if (all(c("name", "pval", "adj_pval", "lfc") %in% colnames(res_de))) {
+      res_de <- dplyr::select(res_de, name, pval, adj_pval, lfc)
     }
-    
-    res_de <- glmGamPoi::test_de(fit, contrast = contrast)
-    #res <- res %>% dplyr::select(name, pval, adj_pval, lfc)
-    
+
   } else if (method == 'nebula') {
-     
-    ### To be adjusted ### ----------
+
+    # To be implemented ---------------
   }
-  
-  res_de
+
+  return(res_de)
 }
+
+
 
 #grange_annot <- function(input_data, data_path) {
   #counts <- input_data$counts

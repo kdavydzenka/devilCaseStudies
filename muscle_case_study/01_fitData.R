@@ -24,7 +24,7 @@ input_data <- prepare_rna_input(input_data)
 
 #time <- dplyr::tibble()
 m <- 'devil'
-for (m in c("devil", "glmGamPoi", "nebula")) {
+for (m in c("nebula")) {
  # s <- Sys.time()
 
   #balanced_input <- subsample_balanced_cells(input_data)
