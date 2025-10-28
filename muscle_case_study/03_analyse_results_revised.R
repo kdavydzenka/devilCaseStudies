@@ -229,3 +229,14 @@ final_plot
 
 ggsave("plot/revision/scatter_full_age_vs_interaction.png", dpi = 400, width = 10.0, height = 10.0, plot = final_plot)
 
+
+### Explore fit objects results ###
+
+devil_fit <- readRDS("results/MuscleRNA/fit/devil_fit_interaction.RDS")
+
+head(devil_fit$beta)
+head(devil_fit$design_matrix)
+
+nebula_fit <- readRDS("results/MuscleRNA/fit/devil_fit_interaction.RDS")
+head(nebula_fit$beta)
+head(nebula_fit$design_matrix)
