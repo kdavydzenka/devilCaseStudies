@@ -204,8 +204,34 @@ de_test <- function(input_data,
     }
 
   } else if (method == 'nebula') {
-
-    # To be implemented ---------------
+    
+    # Nebula-like structure: fit_res$summary and fit_res$covariance
+    n_genes <- nrow(fit_res$summary)
+    effects <- numeric(n_genes)
+    p_values <- numeric(n_genes)
+    
+    for (gene_i in seq_len(n_genes)) {
+      # Build symmetric covariance matrix
+      cov <- matrix(NA, 4, 4)
+      cov[lower.tri(cov, diag = TRUE)] <- as.numeric(fit_res$covariance[gene_i, ])
+      cov[upper.tri(cov)] <- t(cov)[upper.tri(cov)]
+      
+      # Compute effect size LFC
+      eff <- sum(contrast * fit_res$summary[gene_i, 1:4])
+      
+      # Compute p-value
+      p <- pchisq(eff^2 / (t(contrast) %*% cov %*% contrast), df = 1, lower.tail = FALSE)
+      
+      effects[gene_i] <- eff
+      p_values[gene_i] <- p
+    }
+    
+    # Add results to summary
+    fit_res$summary$lfc <- effects
+    fit_res$summary$pval <- p_values
+    fit_res$summary$adj_pval <- p.adjust(p_values, method = "BH")  
+    
+    res_de <- dplyr::select(fit_res$summary, gene = 1, lfc, pval, adj_pval)
   }
 
   return(res_de)

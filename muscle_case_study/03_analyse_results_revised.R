@@ -10,11 +10,11 @@ sapply(pkgs, require, character.only = TRUE)
 
 ### MuscleRNA results ###
 
-methods <- c("devil", "glmGamPoi", "nebula")
-conditions <- c("age", "age_cellType", "interaction")
+methods <- c("devil")
+conditions <- c("age_type1", "age_type2", "interaction")
 
 read_rna <- function(method, condition, rename = TRUE) {
-  path <- glue::glue("results/MuscleRNA/subsampled/{method}_{condition}_rna.RDS")
+  path <- glue::glue("results/MuscleRNA/full/{method}_{condition}.RDS")
   dat <- readRDS(path)
   if (rename && "name" %in% names(dat)) dat <- dat %>% rename(geneID = name)
   dat
@@ -84,7 +84,7 @@ de_colors <- c("Down-reg" = "steelblue",
 lfc_cut <- 1.0
 pval_cut <- .05
 
-outliers_to_remove <- c("KCTD1", "CASP4")
+outliers_to_remove <- c("KCTD1")
 
 prep_rna_data <- function(data, method, lfc_col = "lfc", pval_col = "adj_pval") {
   # get column symbols
@@ -110,12 +110,7 @@ prep_rna_data <- function(data, method, lfc_col = "lfc", pval_col = "adj_pval") 
 }
 
 
-#rna_devil$adj_pval[rna_devil$adj_pval == 0] <- min(rna_devil$adj_pval[rna_devil$adj_pval != 0])
-#rna_devil <- rna_devil[rna_devil$geneID != "KCTD1", ] # remove outlier
-#rna_nebula$adj_pval[rna_nebula$adj_pval == 0] <- min(rna_nebula$adj_pval[rna_nebula$adj_pval != 0])
-#rna_glm$adj_pval[rna_glm$adj_pval == 0] <- min(rna_glm$adj_pval[rna_glm$adj_pval != 0])
-
-methods <- c("devil", "glmGamPoi", "nebula")
+methods <- c("devil")
 
 rna_join <- map_df(methods, function(m) {
   prep_rna_data(rna_data[[glue("rna_{m}_interaction")]], m)
@@ -132,7 +127,7 @@ rna_join <- rna_join %>%
   )
 
 
-p_interaction <- ggplot(rna_join, aes(x = lfc, y = -log10(adj_pval))) +
+p_1 <- ggplot(rna_join, aes(x = lfc, y = -log10(adj_pval))) +
   geom_point(aes(color = DEtype), size = 1.5, alpha = 0.3) +
   scale_color_manual(values = de_colors) +
   geom_vline(xintercept = c(-lfc_cut, lfc_cut), linetype = "dashed", color = "black") +
@@ -146,13 +141,12 @@ p_interaction <- ggplot(rna_join, aes(x = lfc, y = -log10(adj_pval))) +
   labs(
     y = expression(-log[10]~adjusted~P[value]),
     color = "DE type",
-    title = "Age + Cell Type"
+    title = ""
   ) +
   guides(color = guide_legend(override.aes = list(alpha = 1, size = 2)))
 
-p_age
-p_age_cell
-p_interaction
+p_1
+
 
 join_p <- (p_age / p_age_cell / p_interaction)
 
