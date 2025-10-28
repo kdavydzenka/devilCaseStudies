@@ -147,7 +147,7 @@ fit_de <- function(input_data,
     #print(str(data_g))
     #fit <- nebula::nebula(data_g$count, id = data_g$id, pred = data_g$pred, offset = data_g$offset)
     
-    fit <- nebula::nebula(counts, id = metadata$patient, pred = design_matrix, offset = sf, covariance=TRUE)
+    fit <- nebula::nebula(counts, id = metadata$patient, pred = design_matrix, offset = sf, covariance = TRUE)
   
   }
 
