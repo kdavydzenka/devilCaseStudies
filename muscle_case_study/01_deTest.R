@@ -21,7 +21,7 @@ input_data <- read_data(dataset_name, data_path)
 input_data <- prepare_rna_input(input_data)
 
 # Define parameters
-methods <- c("glmGamPoi")
+methods <- c("nebula")
 design_tests <- c("age_type1", "age_type2", "interaction")
 path_fit_res <- "/orfeo/cephfs/scratch/cdslab/kdavydzenka/sc_devil/results/muscle/new/"
 
