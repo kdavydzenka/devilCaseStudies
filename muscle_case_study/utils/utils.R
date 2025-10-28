@@ -156,10 +156,10 @@ fit_de <- function(input_data,
 
 
 de_test <- function(input_data,
-                    fit_res,
-                    method = "devil",
+                    fit_res, 
+                    method = "devil", 
                     design_test = "age_type1") {
-
+ 
   # Check method validity
   if (!(method %in% c('devil', 'glmGamPoi', 'nebula'))) {
     stop('Method not recognized. Choose one of: devil, glmGamPoi, nebula.')
@@ -192,7 +192,7 @@ de_test <- function(input_data,
     )
 
   } else if (method == 'glmGamPoi') {
-
+    
     res_de <- glmGamPoi::test_de(
       fit_res,
       contrast = contrast
