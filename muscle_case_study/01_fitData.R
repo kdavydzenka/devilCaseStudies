@@ -19,32 +19,42 @@ if (!(file.exists(paste0("results/", dataset_name)))) {
 input_data <- read_data(dataset_name, data_path)
 input_data <- prepare_rna_input(input_data)
 
+# Define parameters
+methods <- c("nebula")
+design_tests <- c("age_type1", "age_type2", "interaction")
 
-### RNA analysis ###
+
+### Fit an DE test ###
 
 #time <- dplyr::tibble()
-m <- 'devil'
-for (m in c("nebula")) {
- # s <- Sys.time()
 
-  #balanced_input <- subsample_balanced_cells(input_data)
+for (m in methods) {
+  for (dt in design_tests) {
+    #s <- Sys.time()	  
+    message("Fit coefficients for method: ", m, " | design_test: ", dt)
 
-  # age effect across cells
-  #res_fit_age <- fit_de(input_data, method = m, design_type = "age_only")
+    balanced_input <- subsample_balanced_cells(input_data)
 
-  # Interaction - test age effect controlling for cell type
-  res_fit_interaction <- fit_de(input_data, method = m, design_type = "interaction")
-  
-  path_fit_res <- '/orfeo/cephfs/scratch/cdslab/kdavydzenka/sc_devil/results/muscle/new/'
-  
-  saveRDS(res_fit_interaction, paste0(path_fit_res, m, '_fit_interaction', '.RDS'))
-  
-  #saveRDS(res_fit_interaction, paste0('results/', dataset_name, '/subsampled/', m, '_age_cellType_rna', '.RDS'))
+    fit <- fit_de(balanced_input, method = m, design_type = "interaction")
 
-  #e <- Sys.time()
-  #saveRDS(de_res, paste0('results/', dataset_name, '/subsampled/', m, '_age_cellType_rna', '.RDS'))
-  #time <- dplyr::bind_rows(time, dplyr::tibble(method = m, delta_time = e - s))
-  #print(time)
+    # Run DE test
+    de_res <- de_test(
+      balanced_input,
+      fit,
+      method = m,
+      design_test = dt
+    )
+
+    # Save results
+    save_path <- paste0("results/", dataset_name, "/subsampled/")
+    if (!dir.exists(save_path)) dir.create(save_path, recursive = TRUE)
+
+    saveRDS(de_res, paste0(save_path, m, "_", dt, ".RDS"))
+
+    #e <- Sys.time()
+    #time <- dplyr::bind_rows(time, dplyr::tibble(method = m, delta_time = e - s))
+    #print(time}
+  }
 }
 
 

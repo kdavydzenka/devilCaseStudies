@@ -4,7 +4,7 @@
 #SBATCH --time=8:00:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=1
-#SBATCH --output=out_fit.log
+#SBATCH --output=out.log
 #SBATCH --job-name=de_fit
 
 module load R/4.4.1

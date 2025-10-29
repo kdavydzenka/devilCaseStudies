@@ -143,11 +143,11 @@ fit_de <- function(input_data,
 
     metadata$patient <- as.numeric(as.factor(metadata$sample))
     sf <- devil:::calculate_sf(counts)
-    #data_g = group_cell(count = counts, id = metadata$patient, pred = design_matrix, offset = sf)
-    #print(str(data_g))
-    #fit <- nebula::nebula(data_g$count, id = data_g$id, pred = data_g$pred, offset = data_g$offset)
+    data_g = group_cell(count = counts, id = metadata$patient, pred = design_matrix, offset = sf)
+    print(str(data_g))
+    fit <- nebula::nebula(data_g$count, id = data_g$id, pred = data_g$pred, offset = data_g$offset, covariance = TRUE)
     
-    fit <- nebula::nebula(counts, id = metadata$patient, pred = design_matrix, offset = sf, covariance = TRUE)
+    #fit <- nebula::nebula(counts, id = metadata$patient, pred = design_matrix, offset = sf, covariance = TRUE)
   
   }
 
