@@ -10,62 +10,36 @@ sapply(pkgs, require, character.only = TRUE)
 
 ### MuscleRNA results ###
 
-methods <- c("devil")
+methods <- c("devil", "glmGamPoi", "nebula")
 conditions <- c("age_type1", "age_type2", "interaction")
 
 read_rna <- function(method, condition, rename = TRUE) {
-  path <- glue::glue("results/MuscleRNA/full/{method}_{condition}.RDS")
+  path <- glue::glue("results/MuscleRNA/subsampled/{method}_{condition}.RDS")
   dat <- readRDS(path)
   if (rename && "name" %in% names(dat)) dat <- dat %>% rename(geneID = name)
   dat
 }
 
-rna_data <- purrr::cross_df(list(method = methods, condition = conditions)) %>%
+res_data <- purrr::cross_df(list(method = methods, condition = conditions)) %>%
   mutate(
-    data = map2(method, condition, ~read_rna(.x, .y, rename = .x != "nebula")),
-    name = paste("rna", .data$method, .data$condition, sep = "_")
+    data = map2(method, condition, ~read_rna(.x, .y)),
+    name = paste(.data$method, .data$condition, sep = "_")
   ) %>%
   dplyr::select(name, data) %>%
   deframe()
 
 
-# nebula - age (full)
-rna_data$rna_nebula_age <- rna_data$rna_nebula_age %>%
-  dplyr::mutate(
-    geneID = name,  
-    lfc = lfc / log(2)  
-  ) %>% 
-  dplyr::select(geneID,pval,adj_pval,lfc)
+# nebula 
 
-# nebula - age+cellType (subsampled)
-rna_data$rna_nebula_age_cellType <- rna_data$rna_nebula_age_cellType %>%
-  dplyr::mutate(
-    geneID = gene,  
-    pval = `p_age_cluster1`,  
-    adj_pval = p.adjust(`p_age_cluster1`, method = "BH"),
-    lfc = `logFC_age_cluster1` / log(2)  
-  ) %>% 
-  dplyr::select(geneID,pval,adj_pval,lfc)
+nebula_names <- c("nebula_age_type1", "nebula_age_type2", "nebula_interaction")
 
-# nebula - age+cellType (full)
-rna_data$rna_nebula_age_cellType <- rna_data$rna_nebula_age_cellType %>%
-  dplyr::mutate(
-    geneID = name,  
-    lfc = lfc / log(2)  
-  ) %>% 
-  dplyr::select(geneID,pval,adj_pval,lfc)
+for (nm in nebula_names) {
+  res_data[[nm]] <- res_data[[nm]] %>%
+    mutate(lfc = lfc / log(2)) %>%
+    select(geneID, pval, adj_pval, lfc)
+}
 
-# nebula - interaction 
-rna_data$rna_nebula_interaction <- rna_data$rna_nebula_interaction %>%
-  dplyr::mutate(
-    geneID = gene,  
-    pval = `p_age_cluster1:cell_typeType II`,  
-    adj_pval = p.adjust(`p_age_cluster1:cell_typeType II`, method = "BH"),
-    lfc = `logFC_age_cluster1:cell_typeType II` / log(2)  
-  ) %>% 
-  dplyr::select(geneID,pval,adj_pval,lfc)
-  
-  
+
 # Setup
 
 method_colors = c(
@@ -84,7 +58,7 @@ de_colors <- c("Down-reg" = "steelblue",
 lfc_cut <- 1.0
 pval_cut <- .05
 
-outliers_to_remove <- c("KCTD1")
+outliers_to_remove <- c("")
 
 prep_rna_data <- function(data, method, lfc_col = "lfc", pval_col = "adj_pval") {
   # get column symbols
@@ -110,10 +84,10 @@ prep_rna_data <- function(data, method, lfc_col = "lfc", pval_col = "adj_pval") 
 }
 
 
-methods <- c("devil")
+methods <- c("devil", "glmGamPoi", "nebula")
 
 rna_join <- map_df(methods, function(m) {
-  prep_rna_data(rna_data[[glue("rna_{m}_interaction")]], m)
+  prep_rna_data(res_data[[glue("{m}_interaction")]], m)
 })
 
 rna_join <- rna_join %>%
@@ -127,7 +101,7 @@ rna_join <- rna_join %>%
   )
 
 
-p_1 <- ggplot(rna_join, aes(x = lfc, y = -log10(adj_pval))) +
+p3 <- ggplot(rna_join, aes(x = lfc, y = -log10(adj_pval))) +
   geom_point(aes(color = DEtype), size = 1.5, alpha = 0.3) +
   scale_color_manual(values = de_colors) +
   geom_vline(xintercept = c(-lfc_cut, lfc_cut), linetype = "dashed", color = "black") +
@@ -141,63 +115,63 @@ p_1 <- ggplot(rna_join, aes(x = lfc, y = -log10(adj_pval))) +
   labs(
     y = expression(-log[10]~adjusted~P[value]),
     color = "DE type",
-    title = ""
+    title = "Interaction"
   ) +
   guides(color = guide_legend(override.aes = list(alpha = 1, size = 2)))
 
-p_1
+p3
 
 
-join_p <- (p_age / p_age_cell / p_interaction)
+join_p <- (p1 / p2 / p3)
 
 ggsave("plot/revision/volcanos_subsampled_joint.png", dpi = 400, width = 12.0, height = 12.0, plot = join_p)
 
 
 ### Compare in full lfc_age vs lfc_age_cellType, pval_age vs pval_age_cellType ###
 
-compare_age_cell <- function(method, data_list,
-                                    lfc_col = "lfc",
-                                    pval_col = "adj_pval") {
-  age <- data_list[[glue("rna_{method}_age")]]
-  age_cell <- data_list[[glue("rna_{method}_interaction")]]
+#compare_age_cell <- function(method, data_list,
+                                    #lfc_col = "lfc",
+                                    #pval_col = "adj_pval") {
+  #age <- data_list[[glue("rna_{method}_age")]]
+  #age_cell <- data_list[[glue("rna_{method}_interaction")]]
   
-  merged <- inner_join(
-    age %>% select(geneID, lfc_age = all_of(lfc_col), pval_age = all_of(pval_col)),
-    age_cell %>% select(geneID, lfc_cell = all_of(lfc_col), pval_cell = all_of(pval_col)),
-    by = "geneID"
-  )
+  #merged <- inner_join(
+    #age %>% select(geneID, lfc_age = all_of(lfc_col), pval_age = all_of(pval_col)),
+    #age_cell %>% select(geneID, lfc_cell = all_of(lfc_col), pval_cell = all_of(pval_col)),
+    #by = "geneID"
+  #)
   
   # Plot 1: log2FC comparison
-  p1 <- ggplot(merged, aes(x = lfc_age, y = lfc_cell)) +
-    geom_point(alpha = 0.3, color = "black") +
-    geom_smooth(method = "lm", se = T, color = "darkred") +
-    labs(
-      title = glue("LFC: {method}"),
-      x = "log2FC (Age)",
-      y = "log2FC (Interaction)"
-    ) +
-    theme_minimal()
+  #p1 <- ggplot(merged, aes(x = lfc_age, y = lfc_cell)) +
+    #geom_point(alpha = 0.3, color = "black") +
+    #geom_smooth(method = "lm", se = T, color = "darkred") +
+    #labs(
+      #title = glue("LFC: {method}"),
+      #x = "log2FC (Age)",
+      #y = "log2FC (Interaction)"
+    #) +
+    #theme_minimal()
   
   # Plot 2: adjusted p-value comparison 
-  p2 <- ggplot(merged, aes(x = -log10(pval_age), y = -log10(pval_cell))) +
-    geom_point(alpha = 0.3, color = "black") +
-    geom_smooth(method = "lm", se = T, color = "darkred") +
-    labs(
-      title = glue("adj_pval: {method}"),
-      x = "-log10(adj_pval, Age)",
-      y = "-log10(adj_pval, Interaction)"
-    ) +
-    theme_minimal()
+  #p2 <- ggplot(merged, aes(x = -log10(pval_age), y = -log10(pval_cell))) +
+    #geom_point(alpha = 0.3, color = "black") +
+    #geom_smooth(method = "lm", se = T, color = "darkred") +
+    #labs(
+      #title = glue("adj_pval: {method}"),
+      #x = "-log10(adj_pval, Age)",
+      #y = "-log10(adj_pval, Interaction)"
+    #) +
+    #theme_minimal()
   
-  list(lfc_plot = p1, pval_plot = p2)
-}
+  #list(lfc_plot = p1, pval_plot = p2)
+#}
 
 
 # Run comparisons for all methods
 
-plots <- map(c("devil", "glmGamPoi", "nebula"),
-             ~compare_age_cell(.x, rna_data))
-names(plots) <- c("devil", "glmGamPoi", "nebula")
+#plots <- map(c("devil", "glmGamPoi", "nebula"),
+             #~compare_age_cell(.x, rna_data))
+#names(plots) <- c("devil", "glmGamPoi", "nebula")
 
 # Access plots
 #plots[["devil"]]$lfc_plot  
@@ -209,19 +183,19 @@ names(plots) <- c("devil", "glmGamPoi", "nebula")
 #plots[["nebula"]]$lfc_plot  
 #plots[["nebula"]]$pval_plot  
 
-final_plot <- (
-  plots[["devil"]]$lfc_plot + plots[["devil"]]$pval_plot
-) /
-  (
-    plots[["glmGamPoi"]]$lfc_plot + plots[["glmGamPoi"]]$pval_plot
-  ) /
-  (
-    plots[["nebula"]]$lfc_plot + plots[["nebula"]]$pval_plot
-  )
+#final_plot <- (
+  #plots[["devil"]]$lfc_plot + plots[["devil"]]$pval_plot
+#) /
+  #(
+    #plots[["glmGamPoi"]]$lfc_plot + plots[["glmGamPoi"]]$pval_plot
+  #) /
+  #(
+    #plots[["nebula"]]$lfc_plot + plots[["nebula"]]$pval_plot
+  #)
 
-final_plot
+#final_plot
 
-ggsave("plot/revision/scatter_full_age_vs_interaction.png", dpi = 400, width = 10.0, height = 10.0, plot = final_plot)
+#ggsave("plot/revision/scatter_full_age_vs_interaction.png", dpi = 400, width = 10.0, height = 10.0, plot = final_plot)
 
 
 ### Explore fit objects results ###
@@ -233,71 +207,10 @@ head(devil_fit$design_matrix)
 
 nebula_fit <- readRDS("results/MuscleRNA/fit/nebula_fit_interaction.RDS")
 head(nebula_fit$covariance)
+head(nebula_fit$summary)
 
-n_genes <- nrow(nebula_fit$summary)
-p_values <- numeric(n_genes)
-effects <- numeric(n_genes)
+nebula_interaction$gene <- nebula_fit$summary$gene
+nebula_age_type1 <- nebula_age_type1 %>% dplyr::select(gene, lfc, pval, adj_pval)
+nebula_interaction <- nebula_interaction %>% dplyr::rename(geneID = gene)
 
-contrast <- c(0, 1, 0, 1)
-
-test_nebula = function(nebula_fit, contrast, con) {
-  n_genes <- nrow(nebula_fit$summary)
-  p_values <- numeric(n_genes)
-  effects <- numeric(n_genes)
-  
-  n_variables = sum(grepl("logFC", colnames(nebula_fit$summary)))
-  
-  if (length(contrast) != n_variables) {
-    stop("Passed contrast with wrong number of elements.")
-  }
-  
-  for (gene_i in seq_len(n_genes)) {
-    # Build covariance matrix
-    cov <- matrix(NA, n_variables, n_variables)
-    cov[lower.tri(cov, diag = TRUE)] <- as.numeric(nebula_fit$covariance[gene_i, ])
-    cov[upper.tri(cov)] <- t(cov)[upper.tri(cov)]
-    
-    # Compute the contrast effect
-    eff <- sum(contrast * nebula_fit$summary[gene_i, 1:n_variables])
-    
-    # Compute p-value
-    p <- pchisq(eff^2 / (t(contrast) %*% cov %*% contrast), df = 1, lower.tail = FALSE)
-    
-    effects[gene_i] <- eff
-    p_values[gene_i] <- p
-  }
-  
-  # Add results to summary
-  contrast_name <- paste0("age", "_type1")
-  re_ln$summary[[paste0("lfc_", contrast_name)]] <- effects
-  re_ln$summary[[paste0("pvalue_", contrast_name)]] <- p_values
-}
-
-# Loop over all genes
-
-n_variables = sum(grepl("logFC", colnames(nebula_fit$summary)))
-
-if (length(contrast) != n_variables) {
-  stop("Passed contrast with wrong number of elements.")
-}
-
-for (gene_i in seq_len(n_genes)) {
-  # Build covariance matrix
-  cov <- matrix(NA, n_variables, n_variables)
-  cov[lower.tri(cov, diag = TRUE)] <- as.numeric(nebula_fit$covariance[gene_i, ])
-  cov[upper.tri(cov)] <- t(cov)[upper.tri(cov)]
-  
-  # Compute the contrast effect
-  eff <- sum(contrast * nebula_fit$summary[gene_i, 1:n_variables])
-  
-  # Compute p-value
-  p <- pchisq(eff^2 / (t(contrast) %*% cov %*% contrast), df = 1, lower.tail = FALSE)
-  
-  effects[gene_i] <- eff
-  p_values[gene_i] <- p
-}
-
-# Add results to summary
-contrast_name <- paste0("age", "_type1")
-re_ln$summary[[paste0("lfc_", contrast_name)]] <- effects
-re_ln$summary[[paste0("pvalue_", contrast_name)]] <- p_values
+saveRDS(nebula_interaction, file = "results/MuscleRNA/subsampled/nebula_interaction.RDS")
