@@ -231,6 +231,73 @@ devil_fit <- readRDS("results/MuscleRNA/fit/devil_fit_interaction.RDS")
 head(devil_fit$beta)
 head(devil_fit$design_matrix)
 
-nebula_fit <- readRDS("results/MuscleRNA/fit/devil_fit_interaction.RDS")
-head(nebula_fit$beta)
-head(nebula_fit$design_matrix)
+nebula_fit <- readRDS("results/MuscleRNA/fit/nebula_fit_interaction.RDS")
+head(nebula_fit$covariance)
+
+n_genes <- nrow(nebula_fit$summary)
+p_values <- numeric(n_genes)
+effects <- numeric(n_genes)
+
+contrast <- c(0, 1, 0, 1)
+
+test_nebula = function(nebula_fit, contrast, con) {
+  n_genes <- nrow(nebula_fit$summary)
+  p_values <- numeric(n_genes)
+  effects <- numeric(n_genes)
+  
+  n_variables = sum(grepl("logFC", colnames(nebula_fit$summary)))
+  
+  if (length(contrast) != n_variables) {
+    stop("Passed contrast with wrong number of elements.")
+  }
+  
+  for (gene_i in seq_len(n_genes)) {
+    # Build covariance matrix
+    cov <- matrix(NA, n_variables, n_variables)
+    cov[lower.tri(cov, diag = TRUE)] <- as.numeric(nebula_fit$covariance[gene_i, ])
+    cov[upper.tri(cov)] <- t(cov)[upper.tri(cov)]
+    
+    # Compute the contrast effect
+    eff <- sum(contrast * nebula_fit$summary[gene_i, 1:n_variables])
+    
+    # Compute p-value
+    p <- pchisq(eff^2 / (t(contrast) %*% cov %*% contrast), df = 1, lower.tail = FALSE)
+    
+    effects[gene_i] <- eff
+    p_values[gene_i] <- p
+  }
+  
+  # Add results to summary
+  contrast_name <- paste0("age", "_type1")
+  re_ln$summary[[paste0("lfc_", contrast_name)]] <- effects
+  re_ln$summary[[paste0("pvalue_", contrast_name)]] <- p_values
+}
+
+# Loop over all genes
+
+n_variables = sum(grepl("logFC", colnames(nebula_fit$summary)))
+
+if (length(contrast) != n_variables) {
+  stop("Passed contrast with wrong number of elements.")
+}
+
+for (gene_i in seq_len(n_genes)) {
+  # Build covariance matrix
+  cov <- matrix(NA, n_variables, n_variables)
+  cov[lower.tri(cov, diag = TRUE)] <- as.numeric(nebula_fit$covariance[gene_i, ])
+  cov[upper.tri(cov)] <- t(cov)[upper.tri(cov)]
+  
+  # Compute the contrast effect
+  eff <- sum(contrast * nebula_fit$summary[gene_i, 1:n_variables])
+  
+  # Compute p-value
+  p <- pchisq(eff^2 / (t(contrast) %*% cov %*% contrast), df = 1, lower.tail = FALSE)
+  
+  effects[gene_i] <- eff
+  p_values[gene_i] <- p
+}
+
+# Add results to summary
+contrast_name <- paste0("age", "_type1")
+re_ln$summary[[paste0("lfc_", contrast_name)]] <- effects
+re_ln$summary[[paste0("pvalue_", contrast_name)]] <- p_values
