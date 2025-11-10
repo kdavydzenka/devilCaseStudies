@@ -11,12 +11,12 @@ sapply(pkgs, require, character.only = TRUE)
 ### MuscleRNA results ###
 
 methods <- c("devil", "glmGamPoi", "nebula")
-conditions <- c("age_type1", "age_type2", "interaction")
+conditions <- c("age_only", "age_type1", "age_type2", "interaction")
 
 read_rna <- function(method, condition, rename = TRUE) {
-  path <- glue::glue("results/MuscleRNA/subsampled/{method}_{condition}.RDS")
+  path <- glue::glue("results/MuscleRNA/full/{method}_{condition}.RDS")
   dat <- readRDS(path)
-  if (rename && "name" %in% names(dat)) dat <- dat %>% rename(geneID = name)
+  #if (rename && "name" %in% names(dat)) dat <- dat %>% rename(geneID = name)
   dat
 }
 
@@ -31,12 +31,12 @@ res_data <- purrr::cross_df(list(method = methods, condition = conditions)) %>%
 
 # nebula 
 
-nebula_names <- c("nebula_age_type1", "nebula_age_type2", "nebula_interaction")
+nebula_names <- c("nebula_age_only", "nebula_age_type1", "nebula_age_type2", "nebula_interaction")
 
 for (nm in nebula_names) {
   res_data[[nm]] <- res_data[[nm]] %>%
     mutate(lfc = lfc / log(2)) %>%
-    select(geneID, pval, adj_pval, lfc)
+    select(name, pval, adj_pval, lfc)
 }
 
 
@@ -80,7 +80,7 @@ prep_rna_data <- function(data, method, lfc_col = "lfc", pval_col = "adj_pval") 
         !!pval_sym
       )
     ) %>%
-    dplyr::filter(!geneID %in% outliers_to_remove)
+    dplyr::filter(!name %in% outliers_to_remove)
 }
 
 
@@ -101,7 +101,7 @@ rna_join <- rna_join %>%
   )
 
 
-p3 <- ggplot(rna_join, aes(x = lfc, y = -log10(adj_pval))) +
+p4 <- ggplot(rna_join, aes(x = lfc, y = -log10(adj_pval))) +
   geom_point(aes(color = DEtype), size = 1.5, alpha = 0.3) +
   scale_color_manual(values = de_colors) +
   geom_vline(xintercept = c(-lfc_cut, lfc_cut), linetype = "dashed", color = "black") +
@@ -119,12 +119,58 @@ p3 <- ggplot(rna_join, aes(x = lfc, y = -log10(adj_pval))) +
   ) +
   guides(color = guide_legend(override.aes = list(alpha = 1, size = 2)))
 
-p3
+p4
 
 
-join_p <- (p1 / p2 / p3)
+join_p <- (p1 / p2 / p3 / p4)
 
-ggsave("plot/revision/volcanos_subsampled_joint.png", dpi = 400, width = 12.0, height = 12.0, plot = join_p)
+ggsave("plot/revision/volcanos_full_joint.png", dpi = 400, width = 12.0, height = 15.0, plot = join_p)
+
+
+### Classify genes ###
+
+classify_genes <- function(method_name, res_list) {
+  
+  # Subset elements for specific method only
+  sub <- res_list[str_detect(names(res_list), paste0("^", method_name, "_"))]
+  
+  # Read in the four expected test types
+  res_age   <- sub[[paste0(method_name, "_age_only")]]      %>% select(name, adj_pval, lfc)
+  res_type1 <- sub[[paste0(method_name, "_age_type1")]]     %>% select(name, adj_pval, lfc)
+  res_type2 <- sub[[paste0(method_name, "_age_type2")]]    %>% select(name, adj_pval, lfc)
+  res_inter <- sub[[paste0(method_name, "_interaction")]]    %>% select(name, adj_pval, lfc)
+  
+  # Rename columns
+  colnames(res_age)   <- c("name", "padj_Age",   "lfc_Age")
+  colnames(res_type1) <- c("name", "padj_Type1", "lfc_Type1")
+  colnames(res_type2) <- c("name", "padj_Type2", "lfc_Type2")
+  colnames(res_inter) <- c("name", "padj_Inter", "lfc_Inter")
+  
+  # Merge all together
+  df <- reduce(list(res_age, res_type1, res_type2, res_inter), full_join, by = "name")
+  
+  # Classification logic
+  df %>%
+    dplyr::mutate(
+      sig_Age   = padj_Age   < pval_cut & abs(lfc_Age)   >= lfc_cut,
+      sig_Type1 = padj_Type1 < pval_cut & abs(lfc_Type1) >= lfc_cut,
+      sig_Type2 = padj_Type2 < pval_cut & abs(lfc_Type2) >= lfc_cut,
+      sig_Inter = padj_Inter < pval_cut & abs(lfc_Type2) >= lfc_cut,
+      same_dir  = sign(lfc_TypeI) == sign(lfc_Type2),
+      
+      category = case_when(
+        sig_Type1 & sig_Type2 & same_dir & !sig_Inter ~ "Shared aging",
+        sig_Type1 & !sig_Type2 ~ "TypeI specific",
+        !sig_Type1 & sig_Type2 ~ "TypeII specific",
+        sig_Type1 & sig_Type2 & !same_dir ~ "Divergent regulation",
+        !sig_Type1 & !sig_Type2 & sig_Inter ~ "Interaction only",
+        !sig_Type1 & !sig_Type2 & sig_Age ~ "Age global only",
+        TRUE ~ "Not significant"
+      ),
+      method = method_name
+    )
+}
+
 
 
 ### Compare in full lfc_age vs lfc_age_cellType, pval_age vs pval_age_cellType ###
@@ -198,19 +244,4 @@ ggsave("plot/revision/volcanos_subsampled_joint.png", dpi = 400, width = 12.0, h
 #ggsave("plot/revision/scatter_full_age_vs_interaction.png", dpi = 400, width = 10.0, height = 10.0, plot = final_plot)
 
 
-### Explore fit objects results ###
 
-devil_fit <- readRDS("results/MuscleRNA/fit/devil_fit_interaction.RDS")
-
-head(devil_fit$beta)
-head(devil_fit$design_matrix)
-
-nebula_fit <- readRDS("results/MuscleRNA/fit/nebula_fit_interaction.RDS")
-head(nebula_fit$covariance)
-head(nebula_fit$summary)
-
-nebula_interaction$gene <- nebula_fit$summary$gene
-nebula_age_type1 <- nebula_age_type1 %>% dplyr::select(gene, lfc, pval, adj_pval)
-nebula_interaction <- nebula_interaction %>% dplyr::rename(geneID = gene)
-
-saveRDS(nebula_interaction, file = "results/MuscleRNA/subsampled/nebula_interaction.RDS")
