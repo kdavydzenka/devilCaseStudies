@@ -80,95 +80,95 @@ GO_CLUSTERS <- list(
   )
 )
 
-REACTOME_CLUSTERS <- list(
-  `Immune Response` = c(
-    "Toll-like Receptor Cascades",
-    "Innate Immune System"
-  ),
+#REACTOME_CLUSTERS <- list(
+  #`Immune Response` = c(
+    #"Toll-like Receptor Cascades",
+    #"Innate Immune System"
+  #),
   
-  `Gene Expression Regulation` = c(
-    "Transcriptional regulation by RUNX2",
-    "NGF-stimulated transcription",
-    "Estrogen-dependent gene expression",
-    "Generic Transcription Pathway",
-    "RNA Polymerase II Transcription",
-    "tRNA processing"
-  ),
+  #`Gene Expression Regulation` = c(
+    #"Transcriptional regulation by RUNX2",
+    #"NGF-stimulated transcription",
+    #"Estrogen-dependent gene expression",
+    #"Generic Transcription Pathway",
+    #"RNA Polymerase II Transcription",
+    #"tRNA processing"
+  #),
 
-  `Muscle and Movement Processes` = c(
-    "Striated Muscle Contraction",
-    "Muscle contraction",
-    "Smooth Muscle Contraction"
-  ),
+  #`Muscle and Movement Processes` = c(
+    #"Striated Muscle Contraction",
+    #"Muscle contraction",
+    #"Smooth Muscle Contraction"
+  #),
   
-  `Cell Death & Cellular Maintenance` = c(
-    "Programmed Cell Death",
-    "DNA Repair"
-  ),
+  #`Cell Death & Cellular Maintenance` = c(
+    #"Programmed Cell Death",
+    #"DNA Repair"
+  #),
   
-  `Signaling and Regulation` = c(
-    "Signaling by MET",
-    "Interleukin-1 family signaling",
-    "Negative regulation of the PI3K/AKT network",
-    "PIP3 activates AKT signaling",
-    "Negative regulation of MAPK pathway",
-    "PTEN Regulation",
-    "ER-Phagosome pathway",
-    "RAS processing",
-    "Cytokine Signaling in Immune system",
-    "Signaling by Interleukins",
-    "Signal Transduction"
-  ),
+  #`Signaling and Regulation` = c(
+    #"Signaling by MET",
+    #"Interleukin-1 family signaling",
+    #"Negative regulation of the PI3K/AKT network",
+    #"PIP3 activates AKT signaling",
+    #"Negative regulation of MAPK pathway",
+    #"PTEN Regulation",
+    #"ER-Phagosome pathway",
+    #"RAS processing",
+    #"Cytokine Signaling in Immune system",
+    #"Signaling by Interleukins",
+    #"Signal Transduction"
+  #),
   
-  `Metabolic processes` = c(
-    "Metabolism of RNA",
-    "Metabolism of lipids",
-    "Metabolism of steroids",
-    "Iron uptake and transport"
-  ),
+  #`Metabolic processes` = c(
+    #"Metabolism of RNA",
+    #"Metabolism of lipids",
+    #"Metabolism of steroids",
+    #"Iron uptake and transport"
+  #),
   
-  `Stress Response` = c(
-    "Senescence-Associated Secretory Phenotype (SASP)",
-    "Oxidative Stress Induced Senescence"
-  )
-)
+  #`Stress Response` = c(
+    #"Senescence-Associated Secretory Phenotype (SASP)",
+    #"Oxidative Stress Induced Senescence"
+  #)
+#)
 
-remove_redundant_terms <- function(data, enrichment_col = "enrichmentScore", core_col = "core_enrichment", desc_col = "Description", threshold = 0.5) {
-  filtered_data <- data %>%
-    mutate(genes = strsplit(!!sym(core_col), "/"))
-  n_terms <- nrow(filtered_data)
-  overlap_matrix <- matrix(0, nrow = n_terms, ncol = n_terms,
-                           dimnames = list(filtered_data[[desc_col]], filtered_data[[desc_col]]))
-  for (i in 1:n_terms) {
-    for (j in i:n_terms) {
-      shared_genes <- length(intersect(filtered_data$genes[[i]], filtered_data$genes[[j]]))
-      total_genes <- length(union(filtered_data$genes[[i]], filtered_data$genes[[j]]))
-      jaccard_index <- shared_genes / total_genes
+#remove_redundant_terms <- function(data, enrichment_col = "enrichmentScore", core_col = "core_enrichment", desc_col = "Description", threshold = 0.5) {
+  #filtered_data <- data %>%
+    #mutate(genes = strsplit(!!sym(core_col), "/"))
+  #n_terms <- nrow(filtered_data)
+  #overlap_matrix <- matrix(0, nrow = n_terms, ncol = n_terms,
+                           #dimnames = list(filtered_data[[desc_col]], filtered_data[[desc_col]]))
+  #for (i in 1:n_terms) {
+    #for (j in i:n_terms) {
+      #shared_genes <- length(intersect(filtered_data$genes[[i]], filtered_data$genes[[j]]))
+      #total_genes <- length(union(filtered_data$genes[[i]], filtered_data$genes[[j]]))
+      #jaccard_index <- shared_genes / total_genes
 
       # Fill overlap matrix with Jaccard index
-      overlap_matrix[i, j] <- jaccard_index
-      overlap_matrix[j, i] <- jaccard_index
-    }
-  }
-  redundant_terms <- c()
-  for (i in 1:(n_terms - 1)) {
-    for (j in (i + 1):n_terms) {
-      if (overlap_matrix[i, j] > threshold) {
-        redundant_terms <- c(redundant_terms, filtered_data[[desc_col]][j])
-      }
-    }
-  }
-  non_redundant_data <- filtered_data %>%
-    filter(!(!!sym(desc_col) %in% redundant_terms))
+      #overlap_matrix[i, j] <- jaccard_index
+      #overlap_matrix[j, i] <- jaccard_index
+    #}
+  #}
+  #redundant_terms <- c()
+  #for (i in 1:(n_terms - 1)) {
+    #for (j in (i + 1):n_terms) {
+      #if (overlap_matrix[i, j] > threshold) {
+        #redundant_terms <- c(redundant_terms, filtered_data[[desc_col]][j])
+      #}
+    #}
+  #}
+  #non_redundant_data <- filtered_data %>%
+    #filter(!(!!sym(desc_col) %in% redundant_terms))
 
-  redundant_data <- filtered_data %>%
-    filter(!!sym(desc_col) %in% redundant_terms)
+  #redundant_data <- filtered_data %>%
+    #filter(!!sym(desc_col) %in% redundant_terms)
 
-  return(list(
-    non_redundant_data = non_redundant_data,
-    redundant_data = redundant_data
-  ))
-}
+  #return(list(
+    #non_redundant_data = non_redundant_data,
+    #redundant_data = redundant_data
+  #))
+#}
 
 
 get_simplified_GOterms = function(by=.05) {
@@ -273,82 +273,62 @@ plot_dotplot_GO = function(devil_res, glm_res, nebula_res) {
 }
 
 
-plot_dotplot_RE = function(devil_res, glm_res, nebula_res) {
-  
-  devil_res <- devil_res %>% dplyr::mutate(method = "devil", DE_type = ifelse(enrichmentScore > 0, "Up-regulated", "Down-regulated"))
-  glm_res <- glm_res %>% dplyr::mutate(method = "glmGamPoi", DE_type = ifelse(enrichmentScore > 0, "Up-regulated", "Down-regulated"))
-  nebula_res <- nebula_res %>% dplyr::mutate(method = "nebula", DE_type = ifelse(enrichmentScore > 0, "Up-regulated", "Down-regulated"))
-  
-  combined_data <- bind_rows(devil_res, glm_res, nebula_res) %>%
-    dplyr::filter(Description %in% c("Toll-like Receptor Cascades", "Innate Immune System", "Transcriptional regulation by RUNX2",
-                                     "NGF-stimulated transcription", "Estrogen-dependent gene expression",  "Striated Muscle Contraction",
-                                     "Muscle contraction", "Smooth Muscle Contraction", "Metabolism of steroids",
-                                     "Programmed Cell Death", "Senescence-Associated Secretory Phenotype (SASP)", 
-                                     "Oxidative Stress Induced Senescence", "Iron uptake and transport", 
-                                     "Signaling by MET", "Interleukin-1 family signaling", "Negative regulation of the PI3K/AKT network",
-                                     "PIP3 activates AKT signaling", "Negative regulation of MAPK pathway", "PTEN Regulation",
-                                     "ER-Phagosome pathway", "RAS processing", "Cytokine Signaling in Immune system",
-                                     "Signaling by Interleukins", "Signal Transduction", "Metabolism of RNA",
-                                     "Metabolism of lipids", "tRNA processing", "DNA Repair", "Generic Transcription Pathway",
-                                     "RNA Polymerase II Transcription"))
-  
-  combined_data$RE_cluster = lapply(combined_data$Description, function(re_term) {
-    for (cluster_name in names(REACTOME_CLUSTERS)) {
-      if (re_term %in% REACTOME_CLUSTERS[[cluster_name]]) {
-        return(cluster_name)
-      }
-    }
-    print(re_term)
-    return("RE term not found in any cluster")
-  }) %>% unlist()
-  
-  combined_data$RE_cluster <- str_wrap(combined_data$RE_cluster, width = 20)
-  
-  # Select top 10 terms per method and DE_type based on enrichmentScore
-  filtered_data <- combined_data %>%
-    group_by(method, DE_type) %>%
-    arrange(desc(enrichmentScore)) %>%
-    slice_head(n = 10) %>%
-    ungroup()
-  
-  # Enrichment plot
-  
-  plot_RE = filtered_data %>%
-    dplyr::mutate(
-      Description = factor(
-        Description,
-        levels = filtered_data %>%
-          arrange(factor(method, levels = c("devil", "glmGamPoi", "nebula")), enrichmentScore) %>%
-          pull(Description) %>%
-          unique()
-      ),
-      DE_type = factor(DE_type, levels = c("Up-regulated", "Down-regulated")) # Ensure DE_type is ordered
-    ) %>%
-    ggplot(aes(x = method, y = Description, size = setSize, color = p.adjust)) +
-    geom_point() +
-    facet_grid(RE_cluster~DE_type, space = "free", scales = "free") +
-    scale_color_gradient(low = "cornflowerblue", high = "coral", name = "p-value") +
-    theme_bw() +
-    labs(title = "", x = "", y = "Biological Process Reactome term", size = "Gene Count") +
-    theme(
-      strip.text.y = element_text(angle = 0, hjust = 0.5)  # Rotate labels horizontally
-    )
-  plot_RE
-}
-
-
-
-enrichmentGO <- function(rna_deg_data) {
-  rna_deg_data$adj_pval[rna_deg_data$adj_pval == 0] = min(rna_deg_data$adj_pval[rna_deg_data$adj_pval != 0])
-  rna_deg_data$RankMetric <- -log10(rna_deg_data$adj_pval) * sign(rna_deg_data$lfc)
+#enrichmentGO <- function(rna_deg_data) {
+  #rna_deg_data$adj_pval[rna_deg_data$adj_pval == 0] = min(rna_deg_data$adj_pval[rna_deg_data$adj_pval != 0])
+  #rna_deg_data$RankMetric <- -log10(rna_deg_data$adj_pval) * sign(rna_deg_data$lfc)
   #rna_deg_data$RankMetric <- -log10(rna_deg_data$adj_pval) * rna_deg_data$lfc
-  rna_deg_data <- rna_deg_data %>% arrange(-RankMetric)
+  #rna_deg_data <- rna_deg_data %>% arrange(-RankMetric)
+  #genes <- rna_deg_data$RankMetric
+  #names(genes) <- rna_deg_data$geneID
+
+  #gseGO <- clusterProfiler::gseGO(
+    #genes,
+    #ont = "BP",  
+    #OrgDb = org.Hs.eg.db,
+    #minGSSize = 10,
+    #maxGSSize = 350,
+    #keyType = "SYMBOL",
+    #pvalueCutoff = 0.05,
+    #pAdjustMethod = "BH",
+    #verbose = TRUE,
+    #eps = 0,
+    #nPermSimple = 10000
+    #by ="fgsea",
+    #nPerm = 10000,
+    #seed = 123
+  #)
+  #return(gseGO)
+  #return(gseGO@result %>% as.data.frame())
+#}
+
+
+enrichmentGO <- function(df, padj_col, lfc_col) {
+  
+  # drop NAs and zeros safely
+  rna_deg_data <- df %>%
+    filter(!is.na(.data[[padj_col]]),
+           !is.na(.data[[lfc_col]]),
+           .data[[padj_col]] > 0) %>%
+    dplyr::rename(adj_pval = !!padj_col,
+                  lfc = !!lfc_col,
+                  geneID = name)
+  
+  # handle zeros
+  min_p <- min(rna_deg_data$adj_pval[rna_deg_data$adj_pval != 0], na.rm = TRUE)
+  rna_deg_data$adj_pval[rna_deg_data$adj_pval == 0] <- min_p
+  
+  # rank metric
+  rna_deg_data <- rna_deg_data %>%
+    mutate(RankMetric = -log10(adj_pval) * sign(lfc)) %>%
+    arrange(desc(RankMetric))
+  
   genes <- rna_deg_data$RankMetric
   names(genes) <- rna_deg_data$geneID
-
+  
+  # run enrichment
   gseGO <- clusterProfiler::gseGO(
-    genes,
-    ont = "BP",  
+    geneList = genes,
+    ont = "BP",
     OrgDb = org.Hs.eg.db,
     minGSSize = 10,
     maxGSSize = 350,
@@ -358,35 +338,33 @@ enrichmentGO <- function(rna_deg_data) {
     verbose = TRUE,
     eps = 0,
     nPermSimple = 10000
-    #by ="fgsea",
-    #nPerm = 10000,
-    #seed = 123
   )
+  
   return(gseGO)
-  #return(gseGO@result %>% as.data.frame())
 }
 
 
-enrichmentReactomePA <- function(rna_deg_data) {
-  rna_deg_data$RankMetric <- -log10(rna_deg_data$adj_pval) * sign(rna_deg_data$lfc)
-  rna_deg_data <- rna_deg_data %>% arrange(-RankMetric)
-  genes <- rna_deg_data$RankMetric
-  names(genes) <- rna_deg_data$geneID
+#enrichmentReactomePA <- function(rna_deg_data) {
+  #rna_deg_data$RankMetric <- -log10(rna_deg_data$adj_pval) * sign(rna_deg_data$lfc)
+  #rna_deg_data <- rna_deg_data %>% arrange(-RankMetric)
+  #genes <- rna_deg_data$RankMetric
+  #names(genes) <- rna_deg_data$geneID
   
-  entrez_ids <- mapIds(org.Hs.eg.db, keys = names(genes), column = "ENTREZID", keytype = "SYMBOL", multiVals = "first")
-  entrez_ids <- as.data.frame(entrez_ids)
-  names(genes) <- entrez_ids$entrez_ids
+  #entrez_ids <- mapIds(org.Hs.eg.db, keys = names(genes), column = "ENTREZID", keytype = "SYMBOL", multiVals = "first")
+  #entrez_ids <- as.data.frame(entrez_ids)
+  #names(genes) <- entrez_ids$entrez_ids
   
-  gseReactome <- ReactomePA::gsePathway(genes, 
-                                        pvalueCutoff = 0.2,
-                                        pAdjustMethod = "BH", 
-                                        verbose = FALSE)
+  #gseReactome <- ReactomePA::gsePathway(genes, 
+                                        #pvalueCutoff = 0.2,
+                                        #pAdjustMethod = "BH", 
+                                        #verbose = FALSE)
   
-  return(gseReactome@result %>% as.data.frame())
-}
+  #return(gseReactome@result %>% as.data.frame())
+#}
 
 
 # Function to compute the area under the curve (AUC) using the trapezoidal rule
+
 auc <- function(x, y) {
   # Check if the lengths of x and y are the same
   if (length(x) != length(y)) {
