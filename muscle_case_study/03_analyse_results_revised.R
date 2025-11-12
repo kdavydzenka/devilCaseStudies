@@ -55,7 +55,7 @@ de_colors <- c("Down-reg" = "steelblue",
                "n.s." = "grey")
 
 
-###------------Volcano plot--------------###
+###------------Volcano plot - explorative--------------###
 
 lfc_cut <- 1.0
 pval_cut <- .05
@@ -101,7 +101,6 @@ rna_join <- rna_join %>%
       TRUE ~ "Down-reg"
     )
   )
-
 
 p4 <- ggplot(rna_join, aes(x = lfc, y = -log10(adj_pval))) +
   geom_point(aes(color = DEtype), size = 1.5, alpha = 0.3) +
@@ -648,8 +647,6 @@ for (method in names(gsea_all_simplified)) {
   tissue_specific_results[[method]] <- get_tissue_specific_res(gse_result, method)
 }
 
-devil <- tissue_specific_results[["devil_Type II"]]
-
 tissue = target_tissue <- "Skeletal Muscle"
 
 pval_cut = .05
@@ -685,39 +682,45 @@ best_df <- lapply(tissue_specific_results, function(tissue_gse) {
 
 saveRDS(best_df, file = "plot/revision/data_to_plot/tissue_enrichment.RDS")
 
+# Plot
+
+best_df <- readRDS("plot/revision/data_to_plot/tissue_enrichment.RDS")
+
 plot_tissue_distribution <- function(data, method_colors = NULL) {
   
   df_summary <- data %>% 
-    group_by(method, Tissue) %>% 
-    summarise(n = n(), .groups = "drop_last") %>% 
-    mutate(f = n / sum(n)) %>% 
-    mutate(Tissue = factor(
-      Tissue,
-      levels = rev(c("Skeletal Muscle", "Generic", "Cerebral Cortex",
-                     "Adipose Tissue", "Cervix, uterine", "Liver", "Heart Muscle"))
-    ))
+    dplyr::group_by(method, Tissue) %>% 
+    dplyr::summarise(n = n(), .groups = "drop_last") %>% 
+    dplyr::mutate(f = n / sum(n)) %>% 
+    dplyr::mutate(
+      Tissue = factor(
+        Tissue,
+        levels = c(
+          "Skeletal Muscle", "Generic", "Cerebral Cortex",
+          "Adipose Tissue", "Cervix, uterine", "Liver", "Heart Muscle"
+        )
+      )
+    )
   
   ggplot(df_summary, aes(x = Tissue, y = f, fill = method)) +
     geom_col(position = position_dodge(width = 0.8), width = 0.7, color = "grey30") +
-    coord_flip() +
     theme_bw(base_size = 12) +
     theme(
       legend.position = "bottom",
       legend.title = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 10, color = "black"),
       axis.text.y = element_text(size = 10, color = "black"),
-      axis.text.x = element_text(size = 10, color = "black"),
-      panel.grid.major.y = element_blank(),
+      panel.grid.major.x = element_blank(),
       panel.grid.minor = element_blank(),
       strip.text = element_text(face = "bold")
     ) +
     labs(
-      y = "Fraction",
       x = "Tissue",
+      y = "Fraction",
       title = ""
     ) +
     scale_fill_manual(values = method_colors)
 }
-
 
 method_colors <- c(
   "devil_Age" = "#099668",
@@ -734,7 +737,7 @@ method_colors <- c(
 tissue_specific_dist_plot <- plot_tissue_distribution(best_df, method_colors)
 tissue_specific_dist_plot
 
-ggsave("plot/revision/tissue_dist_plot.png", dpi = 400, width = 9.0, height = 7.0, plot = tissue_specific_dist_plot)
+ggsave("plot/revision/tissue_dist_plot.png", dpi = 400, width = 9.0, height = 8.0, plot = tissue_specific_dist_plot)
 
 
 ### Compare in full lfc_age vs lfc_age_cellType, pval_age vs pval_age_cellType ###
