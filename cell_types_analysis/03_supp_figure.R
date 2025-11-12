@@ -7,6 +7,9 @@ set.seed(SEED)
 
 args = commandArgs(trailingOnly=TRUE)
 
+dataset_name = "pbmc" 
+tissue = "blood"
+
 ## Input data
 dataset_name <- args[1]
 tissue <- args[2]
@@ -29,7 +32,6 @@ seurat_obj <- readRDS(paste0('results/', dataset_name, '/seurat.RDS'))
 computeGroundTruth(seurat_obj) %>% dplyr::arrange(cluster)
 print("Seurat obj cell types")
 print(seurat_obj$cell_type %>% unique())
-
 
 anno <- scMayoMap::scMayoMapDatabase
 anno <- lapply(colnames(anno[2:ncol(anno)]), function(ct) {
@@ -54,20 +56,20 @@ ground_truth <- computeGroundTruth(seurat_obj) %>% dplyr::arrange(cluster)
 # seurat_obj$cell_type <- cell_type_names_to_scMayo_names(seurat_obj$cell_type, tissue)
 # computeGroundTruth(seurat_obj) %>% dplyr::arrange(cluster)
 
-umap_plot_seurat <- Seurat::DimPlot(
-  seurat_obj,
-  reduction = "umap",
-  group.by = "seurat_clusters",
-  label = T,
-  repel = T) +
-  ggtitle("") +
-  scale_color_manual(values = my_large_palette) +
-  theme(axis.line=element_blank(),axis.text.x=element_blank(),
-        axis.text.y=element_blank(),axis.ticks=element_blank(),
-        axis.title.x=element_blank(),
-        axis.title.y=element_blank(),legend.position="none",
-        panel.background=element_blank(),panel.border=element_blank(),panel.grid.major=element_blank(),
-        panel.grid.minor=element_blank(),plot.background=element_blank())
+# umap_plot_seurat <- Seurat::DimPlot(
+#   seurat_obj,
+#   reduction = "umap",
+#   group.by = "seurat_clusters",
+#   label = T,
+#   repel = T) +
+#   ggtitle("") +
+#   scale_color_manual(values = my_large_palette) +
+#   theme(axis.line=element_blank(),axis.text.x=element_blank(),
+#         axis.text.y=element_blank(),axis.ticks=element_blank(),
+#         axis.title.x=element_blank(),
+#         axis.title.y=element_blank(),legend.position="none",
+#         panel.background=element_blank(),panel.border=element_blank(),panel.grid.major=element_blank(),
+#         panel.grid.minor=element_blank(),plot.background=element_blank())
 
 data_umap <- dplyr::tibble(
   umap1=seurat_obj@reductions$umap@cell.embeddings[,1],
@@ -354,9 +356,30 @@ pD
 unlink("Rplots.pdf")
 
 # save figure
-final_plot <- (free(pA) / free(pB) / free(pC) / free(pD)) + plot_annotation(tag_levels = "A") + plot_layout(heights = c(2,1,1,1))
-ggsave(paste0("plot_figure/", dataset_name, ".pdf"), dpi=600, width = 8, height = 12, plot = final_plot)
-ggsave(paste0("plot_figure/", dataset_name, ".png"), dpi=600, width = 8, height = 12, plot = final_plot)
+des = "
+AAAA
+AAAA
+AAAA
+BBBB
+BBBB
+CCDD
+CCDD
+"
+
+final_plot <- free(pA) + free(pB) + free(pC) + free(pD) + 
+  plot_layout(design = des) +
+  plot_annotation(tag_levels = "A") & 
+  theme(
+    plot.tag = element_text(face = "bold", size = 15)
+  )
+
+ggsave(paste0("plot_figure/", dataset_name, ".pdf"), dpi=600, width = 10, height = 10, plot = final_plot)
+ggsave(paste0("plot_figure/", dataset_name, ".png"), dpi=600, width = 10, height = 10, plot = final_plot)
+
+# 
+# final_plot <- (free(pA) / free(pB) / free(pC) / free(pD)) + plot_annotation(tag_levels = "A") + plot_layout(heights = c(2,1,1,1))
+# ggsave(paste0("plot_figure/", dataset_name, ".pdf"), dpi=600, width = 8, height = 12, plot = final_plot)
+# ggsave(paste0("plot_figure/", dataset_name, ".png"), dpi=600, width = 8, height = 12, plot = final_plot)
 
 # pCB <- (pC | pB) + plot_layout(widths = c(1.2,3))
 # final_plot <- (pA / pCB) + plot_annotation(tag_levels = "A") + plot_layout(heights = c(2,1))

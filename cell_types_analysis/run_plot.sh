@@ -7,7 +7,8 @@
 #SBATCH --output=out/plot.log
 #SBATCH --job-name=cell_type_plotting
 
-module load R/4.4.1
+source ~/.bashrc
+conda activate process
 
 LC_ALL=C.UTF-8 Rscript 03_supp_figure.R BaronPancreasData pancreas
 LC_ALL=C.UTF-8 Rscript 03_supp_figure.R pbmc blood

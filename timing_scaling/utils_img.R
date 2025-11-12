@@ -429,8 +429,9 @@ plot_correlations <- function(fits_folder) {
   fits <- list.files(fits_folder, full.names = T)
 
   devil.res <- readRDS(fits[grepl("/cpu_devil_", fits)])
-  #gpu.devil.res <- readRDS(fits[grepl("/gpu_devil_", fits)])
+  gpu.devil.res <- readRDS(fits[grepl("/gpu_devil_", fits)])
   glm.res <- readRDS(fits[grepl("/cpu_glmGam", fits)])
+  
 
   p1 <- dplyr::bind_rows(
     # dplyr::tibble(
@@ -454,7 +455,7 @@ plot_correlations <- function(fits_folder) {
     facet_grid(x_name~y_name, switch = "both") +
     theme_bw() +
     labs(x = bquote(LFC[1]), y=bquote(LFC[2]))
-
+  
   p2 <- dplyr::bind_rows(
     # dplyr::tibble(
     #   x = gpu.devil.res$theta,
@@ -476,7 +477,7 @@ plot_correlations <- function(fits_folder) {
     facet_grid(x_name~y_name, switch = "both") +
     theme_bw() +
     labs(x = bquote(theta[1]), y=bquote(theta[2]))
-
+  
   list(lfc=p1, theta=p2)
 }
 
