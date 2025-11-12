@@ -1,6 +1,7 @@
 .DS_Store
 .RData
 *data/*
+*/data/*
 de_analysis/*test*
 de_analysis/nullpower/*test*
 *seurat.RDS
@@ -12,3 +13,4 @@ de_analysis/nullpower/*test*
 *._*
 *.DS_Store
 muscle_case_study/results/MuscleRNA/fit/*devil*
+de_analysis/nullpower/timing_results
