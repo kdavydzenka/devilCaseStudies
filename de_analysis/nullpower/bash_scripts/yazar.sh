@@ -7,5 +7,5 @@
 #SBATCH --output=out/yazar.log
 #SBATCH --job-name=yazar
 
-module load R
+conda activate process
 LC_ALL=C.UTF-8 Rscript run_models.R yazar

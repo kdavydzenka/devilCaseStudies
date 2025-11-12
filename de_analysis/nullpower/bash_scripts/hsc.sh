@@ -7,5 +7,5 @@
 #SBATCH --output=out/hsc.log
 #SBATCH --job-name=hsc
 
-module load R
+conda activate process
 LC_ALL=C.UTF-8 Rscript run_models.R hsc

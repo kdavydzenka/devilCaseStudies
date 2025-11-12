@@ -1,5 +1,4 @@
 
-
 custom_labels <- function(x) {
   sapply(x, function(xi) {
     if (xi == floor(xi)) {
@@ -234,9 +233,521 @@ all_pow_plots <- function(author, is.pb, algos = c("glmGamPoi (Pb)", "glmGamPoi 
   plots
 }
 
+get_result = function(author, is.pb, n_patients = 4, ngenes = 50, cell_index = 1, iter = 2, stop_on_error = T) {
+  # Read non-DE res
+  if (is.pb) {
+    head_folder = "nullpower/null_subject"
+  } else {
+    head_folder = "nullpower/null_cell"
+  }
+  
+  paths = list.files(head_folder)
+  f = grepl(author, paths) & 
+    grepl(paste0("n.", n_patients), paths, fixed = T) & 
+    grepl(paste0("ngenes.", ngenes, "."), paths, fixed = T) & 
+    grepl(paste0("ct.", cell_index), paths) & 
+    grepl(paste0("iter.", iter), paths)
+  
+  if (!sum(f) == 1) {
+    if (stop_on_error) {
+      stop("found either zero or too many (>2) paths")  
+    } else {
+      return(dplyr::tibble())
+    }
+  }
+  
+  fp = paths[f]
+  d <- read.delim(file.path(head_folder, fp), sep = ",")
+  d_non_de = d %>% dplyr::mutate(status = 0) %>% 
+    tidyr::pivot_longer(!c(X, status), values_to = "p_val")
+  
+  # Read DE res
+  if (is.pb) {
+    head_folder = "nullpower/pow_subject/"
+  } else {
+    head_folder = "nullpower/pow_cell/"
+  }
+  
+  d <- read.delim(file.path(head_folder, fp), sep = ",")
+  d_de = d %>% dplyr::mutate(status = 1) %>% 
+    tidyr::pivot_longer(!c(X, status), values_to = "p_val")
+  
+  # Merge results and compute adj.pvalues
+  dplyr::bind_rows(d_non_de, d_de) %>%
+    dplyr::group_by(name) %>% 
+    dplyr::mutate(adj_pval = p.adjust(p_val, method = "BH")) %>% 
+    dplyr::group_by(name) %>% 
+    dplyr::mutate(X = row_number()) %>% 
+    dplyr::mutate(author = author, is.pb = is.pb, n_patients = n_patients, ngenes = ngenes, cell_index = cell_index, iter = iter) %>% 
+    dplyr::ungroup()
+}
+
+calculate_roc_data <- function(df, status_col, name_col, score_col) {
+  unique_names <- unique(df[[name_col]])
+  roc_data_list <- list()
+  auc_data <- data.frame()
+  
+  for (name in unique_names) {
+    # Filter data for this name
+    name_data <- df[df[[name_col]] == name, ]
+    
+    # Check if we have both classes
+    status_values <- unique(name_data[[status_col]])
+    if (length(status_values) < 2 || !all(status_values %in% c(0, 1))) {
+      cat("Warning:", name, "doesn't have both classes (0 and 1). Skipping.\n")
+      next
+    }
+    
+    
+    
+    # Create ROC object
+    roc_obj <- roc(name_data[[status_col]], 
+                   1 - name_data[[score_col]], # Higher score = more likely positive
+                   direction = "<", 
+                   quiet = TRUE)
+    
+    # Extract coordinates
+    roc_coords <- data.frame(
+      FPR = 1 - roc_obj$specificities,
+      TPR = roc_obj$sensitivities,
+      name = name
+    )
+    
+    roc_data_list[[name]] <- roc_coords
+    
+    # Store AUC information
+    auc_value <- round(auc(roc_obj), 3)
+    auc_data <- rbind(auc_data, data.frame(name = name, auc = auc_value))
+  }
+  
+  # Combine all ROC data
+  roc_data <- do.call(rbind, roc_data_list)
+  
+  return(list(roc_data = roc_data, auc_data = auc_data))
+}
+
+compute_tpr_fdr <- function(df, threshold) {
+  # Predictions: significant if adj_pval < threshold
+  predictions <- df$adj_pval < threshold
+  ground_truth <- df$status == 1
+  
+  # Confusion matrix components
+  tp <- sum(predictions & ground_truth)        # True Positives
+  fp <- sum(predictions & !ground_truth)       # False Positives  
+  fn <- sum(!predictions & ground_truth)       # False Negatives
+  tn <- sum(!predictions & !ground_truth)      # True Negatives
+  
+  # Calculate TPR (Sensitivity/Recall) and FDR
+  tpr <- ifelse(tp + fn > 0, tp / (tp + fn), 0)  # TPR = TP / (TP + FN)
+  fdr <- ifelse(tp + fp > 0, fp / (tp + fp), 0)  # FDR = FP / (TP + FP)
+  
+  return(list(tpr = tpr, fdr = fdr, tp = tp, fp = fp, fn = fn, tn = tn))
+}
+
+plot_pr_with_alpha <- function(df, tool_names, alpha = 0.05, show_alpha_point = TRUE) {
+  pr_data_list <- list()
+  auc_data <- data.frame()
+  
+  for (tool in tool_names) {
+    d <- df %>% dplyr::filter(name == tool)
+    
+    # ---- PR curve from ranking ----
+    pred_scores <- 1 - d$adj_pval
+    o <- order(pred_scores, decreasing = TRUE)
+    y <- d$status[o]                   # 1 = positive, 0 = negative
+    tp <- cumsum(y)
+    fp <- cumsum(1 - y)
+    precision <- tp / (tp + fp)
+    precision[is.nan(precision)] <- 0
+    recall <- tp / sum(y)
+    
+    pr_coords <- data.frame(
+      Precision = precision,
+      Recall = recall,
+      tool = tool
+    )
+    pr_data_list[[tool]] <- pr_coords
+    
+    # Trapezoidal AUC-PR on the stepwise curve
+    auc_pr <- sum(diff(recall) * precision[-1], na.rm = TRUE)
+    auc_data <- rbind(auc_data, data.frame(tool = tool, auc_pr = round(auc_pr, 3)))
+  }
+  
+  pr_data <- do.call(rbind, pr_data_list)
+  pr_data <- merge(pr_data, auc_data, by = "tool")
+  pr_data$label <- paste0(pr_data$tool, " (AUC = ", pr_data$auc_pr, ")")
+  
+  # ---- Alpha (e.g., 0.05) point per tool ----
+  pr_points <- NULL
+  if (show_alpha_point) {
+    pr_points <- lapply(tool_names, function(tool) {
+      d <- df %>% dplyr::filter(name == tool)
+      y <- d$status == 1
+      pred <- d$adj_pval <= alpha
+      TP <- sum(pred & y)
+      FP <- sum(pred & !y)
+      P  <- sum(y)
+      prec <- ifelse(TP + FP > 0, TP / (TP + FP), NA_real_)
+      rec  <- ifelse(P > 0, TP / P, NA_real_)
+      data.frame(tool = tool, Precision = prec, Recall = rec)
+    }) %>% dplyr::bind_rows() %>% dplyr::left_join(auc_data, by = "tool") %>%
+      dplyr::mutate(label = paste0(tool, " (AUC = ", auc_pr, ")"),
+                    alpha = alpha)
+  }
+  
+  # ---- Plot ----
+  p <- ggplot(pr_data, aes(x = Recall, y = Precision, color = label)) +
+    geom_line(size = 1.2) +
+    scale_color_brewer(type = "qual", palette = "Set2") +
+    labs(title = "Precision-Recall Curves",
+         x = "Recall (Sensitivity)", y = "Precision (PPV)",
+         color = "Tool") +
+    theme_bw() +
+    theme(legend.position = "bottom")
+  
+  if (show_alpha_point && !is.null(pr_points)) {
+    p <- p +
+      geom_point(data = pr_points, aes(x = Recall, y = Precision, color = label),
+                 size = 3, stroke = 1.1) +
+      ggrepel::geom_text_repel(
+        data = pr_points,
+        aes(x = Recall, y = Precision,
+            label = paste0("α=", format(pr_points$alpha[1])), color = label),
+        size = 3, show.legend = FALSE, max.overlaps = 20
+      )
+  }
+  
+  p
+}
+
+
+create_other_curves <- function(df, tool_names) {
+  pr_data_list <- list()
+  auc_data <- data.frame()
+  
+  tool = tool_names[1]
+  r = lapply(tool_names, function(tool) {
+    d = df %>% dplyr::filter(name == tool)
+    
+    # Calculate precision-recall
+    pred_scores <- 1 - d$adj_pval
+    
+    # Sort by prediction score (descending)
+    sorted_indices <- order(pred_scores, decreasing = TRUE)
+    true_labels <- d$status[sorted_indices]
+    xs = cumsum(true_labels == 0)
+    dplyr::tibble(x = 1:length(xs), y = xs, tool = tool)
+  }) %>% do.call("bind_rows", .)
+  
+  ggplot(r, mapping = aes(x = x, y = y, colour = tool)) +
+    geom_line() +
+    scale_y_continuous(transform = "log10") +
+    theme_bw()
+  
+  p <- ggplot(pr_data, aes(x = Recall, y = Precision, color = label)) +
+    geom_line(size = 1.2) +
+    scale_color_brewer(type = "qual", palette = "Set2") +
+    labs(title = "Precision-Recall Curves",
+         x = "Recall (Sensitivity)", y = "Precision (PPV)",
+         color = "Tool") +
+    theme_bw() +
+    theme(legend.position = "bottom")
+  p
+  return(p)
+}
+
+
+
+plot_tpr_fdr = function(author, is.pb, n_patients, ngenes, cell_index, iter) {
+  df = get_result(author, is.pb, n_patients, ngenes, cell_index, iter) %>% 
+    dplyr::mutate(X = paste0(X, author, is.pb, n_patients, ngenes, cell_index, iter))       
+  
+  df = df %>% na.omit()
+
+  # Prep cobra object
+  pval = df %>%
+    dplyr::select(X, name, p_val) %>%
+    tidyr::pivot_wider(values_from = p_val, names_from = name) %>%
+    dplyr::arrange(X) %>%
+    dplyr::select(!X) %>%
+    as.data.frame()
+  rownames(pval) = paste0("Gene", 1:nrow(pval))
+
+  truth = df %>%
+    dplyr::select(X, status) %>%
+    dplyr::distinct() %>%
+    dplyr::arrange(X) %>%
+    dplyr::select(!X) %>%
+    as.data.frame()
+
+  rownames(pval) = paste0("Gene", 1:nrow(pval))
+  rownames(truth) = paste0("Gene", 1:nrow(pval))
+  truth$feature = rownames(truth)
+
+  library(iCOBRA)
+  cobradata = iCOBRA::COBRAData(pval, truth = truth)
+  cobradata <- calculate_adjp(cobradata, method = "BH")
+  cobraperf <- calculate_performance(cobradata, binary_truth = "status",
+                                     cont_truth = "logFC", splv = "none",
+                                     maxsplit = 4)
+
+  cobraplot <- prepare_data_for_plot(cobraperf, colorscheme = "Dark2")
+  plot_fdrtprcurve(cobraplot)
+  
+  # Check if required columns exist
+  status_col <- "status"
+  name_col <- "name"
+  score_col <- "adj_pval"
+  
+  required_cols <- c(status_col, name_col, score_col)
+  if (!all(required_cols %in% colnames(df))) {
+    stop(paste("Missing columns:", paste(setdiff(required_cols, colnames(df)), collapse = ", ")))
+  }
+  
+  # Calculate ROC data
+  roc_results <- calculate_roc_data(df, status_col, name_col, score_col)
+  roc_data <- roc_results$roc_data
+  auc_data <- roc_results$auc_data
+  
+  # Create labels with AUC values
+  auc_data$label <- paste0(auc_data$name, " (AUC = ", auc_data$auc, ")")
+  
+  # Merge labels back to roc_data
+  roc_data <- merge(roc_data, auc_data[, c("name", "label")], by = "name")
+  
+  # Get number of unique names for color palette
+  n_names <- length(unique(roc_data$name))
+  
+  # Prepare colors
+  if (n_names <= 11) {
+    colors <- RColorBrewer::brewer.pal(max(3, n_names), "Spectral")
+  } else {
+    colors <- rainbow(n_names)
+  }
+  
+  # Create the ggplot
+  p <- ggplot(roc_data, aes(x = FPR, y = TPR, color = label)) +
+    geom_line(size = 1.2) +
+    geom_abline(intercept = 0, slope = 1, color = "gray", linetype = "dashed", alpha = 0.7) +
+    scale_color_manual(values = colors) +
+    scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
+    scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
+    labs(
+      title = "ROC Curves by Name",
+      x = "False Positive Rate (FPR)",
+      y = "True Positive Rate (TPR)",
+      color = "Method"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+      legend.position = "bottom",
+      legend.title = element_text(face = "bold"),
+      panel.grid.major = element_line(color = "lightgray", linetype = "dotted"),
+      panel.grid.minor = element_line(color = "lightgray", linetype = "dotted", size = 0.25),
+      axis.title = element_text(face = "bold"),
+      legend.key.width = unit(1.5, "cm")
+    ) +
+    guides(color = guide_legend(override.aes = list(size = 1.5)))
+  
+  p
+
+  dplyr::left_join(
+    df %>%
+      dplyr::mutate(TP = adj_pval <= .05 & status == 1) %>%
+      dplyr::group_by(name) %>%
+      dplyr::summarise(TP = sum(TP)),
+    df %>%
+      dplyr::mutate(FP = adj_pval <= .05 & status == 0) %>%
+      dplyr::group_by(name) %>%
+      dplyr::summarise(FP = sum(FP))
+  )
+  # 
+  # 
+  # 
+  # #df = df %>% na.omit()
+  # 
+  # # Prep cobra object
+  # pval = df %>% 
+  #   dplyr::select(X, name, p_val) %>% 
+  #   tidyr::pivot_wider(values_from = p_val, names_from = name) %>% 
+  #   dplyr::arrange(X) %>% 
+  #   dplyr::select(!X) %>% 
+  #   as.data.frame()
+  # rownames(pval) = paste0("Gene", 1:nrow(pval))
+  # 
+  # truth = df %>% 
+  #   dplyr::select(X, status) %>% 
+  #   dplyr::distinct() %>% 
+  #   dplyr::arrange(X) %>% 
+  #   dplyr::select(!X) %>% 
+  #   as.data.frame()
+  # 
+  # rownames(pval) = paste0("Gene", 1:nrow(pval))
+  # rownames(truth) = paste0("Gene", 1:nrow(pval)) 
+  # truth$feature = rownames(truth)
+  # 
+  # library(iCOBRA)
+  # cobradata = iCOBRA::COBRAData(pval, truth = truth)
+  # cobradata <- calculate_adjp(cobradata, method = "BH")
+  # cobraperf <- calculate_performance(cobradata, binary_truth = "status", 
+  #                                    cont_truth = "logFC", splv = "none",
+  #                                    maxsplit = 4)
+  # 
+  # cobraplot <- prepare_data_for_plot(cobraperf, colorscheme = "Dark2", facetted = TRUE)
+  # plot_fdrtprcurve(cobraplot)
+}
+
+map_name = c(
+  "edgeR..Pb." = "edgeR (Pb)",
+  "edgeR..cell." = "edgeR (cell)",
+  "MAST..cell." = "MAST (cell)",
+  "Seurat..cell." = "Seurat (cell)",
+  "limma..Pb." = "limma (Pb)",
+  "limma..cell." = "limma (cell)",
+  "glmGamPoi..Pb." = "glmGamPoi (Pb)",
+  "glmGamPoi..cell." = "glmGamPoi (cell)",
+  "NEBULA" = "Nebula",
+  "devil..base." = "Devil (base)",
+  "devil..mixed." = "Devil (mixed)",
+  "devil..sf.base." = "Devil (SF/base)",
+  "devil..sf.mixed." = "Devil (SF/mixed)"
+)
+
+author = "hsc"
+plot_pvals = function(author, is.pb, iters = c(1:5), ngenes = c(12, 25, 50), ct.indexes = 1:6, n.patients = 8) {
+  df = lapply(iters, function(i) {
+    lapply(ngenes, function(ng) {
+      lapply(ct.indexes, function(ct) {
+        lapply(n.patients, function(np) {
+          get_result(author, is.pb = is.pb, n_patients = np, ngenes = ng, cell_index = ct, iter = i, stop_on_error = F)
+        }) %>% do.call("bind_rows", .)
+      }) %>% do.call("bind_rows", .)
+    }) %>% do.call("bind_rows", .)
+  }) %>% do.call("bind_rows", .)
+  
+  df$name = map_name[df$name]
+  
+  df %>% 
+    dplyr::filter(status == 0) %>% 
+    # dplyr::filter(name %in% method_patientwise) %>% 
+    ggplot(mapping = aes(x = p_val)) +
+    geom_histogram(binwidth = .01) +
+    facet_wrap(~name, scales = "free_y")
+  
+  df %>% 
+    dplyr::filter(status == 0) %>% 
+    group_by(name, iter, n_patients, ngenes, cell_index) %>%
+    arrange(p_val, .by_group = TRUE) %>%
+    mutate(
+      rank = row_number(),
+      expected = rank / (n() + 1)
+    ) %>% 
+    ggplot(mapping = aes(x = -log10(expected), y =-log10(p_val), col = name)) +
+    # ggplot(mapping = aes(x = expected, y = p_val, col = name)) +
+    geom_smooth() +
+    #geom_point() +
+    theme_bw() +
+    #ggsci::scale_color_nejm() +
+    scale_x_continuous(limits = c(0, 5)) +
+    scale_y_continuous(limits = c(0, 5)) +
+    geom_abline(slope = 1, intercept = 0) +
+    coord_fixed()
+  
+  df %>% 
+    dplyr::filter(status == 0) %>% 
+    group_by(name, iter, n_patients, ngenes, cell_index) %>%
+    arrange(p_val, .by_group = TRUE) %>%
+    mutate(
+      rank = row_number(),
+      expected = rank / (n() + 1)
+    ) %>% 
+    ggplot(mapping = aes(x = expected, y = p_val, col = name)) +
+    # ggplot(mapping = aes(x = expected, y = p_val, col = name)) +
+    #geom_smooth() +
+    geom_point() +
+    theme_bw() +
+    facet_wrap(~name)
+  
+  df %>% 
+    dplyr::filter(status == 0) %>% 
+    group_by(name, iter, n_patients, ngenes, cell_index) %>%
+    arrange(p_val, .by_group = TRUE) %>%
+    mutate(
+      rank = row_number(),
+      expected = rank / (n() + 1)
+    ) %>% 
+    ggplot(mapping = aes(x = -log10(expected), y =-log10(p_val), col = name)) +
+    # ggplot(mapping = aes(x = expected, y = p_val, col = name)) +
+    #geom_smooth() +
+    geom_point() +
+    theme_bw() +
+    #ggsci::scale_color_nejm() +
+    scale_x_continuous(limits = c(0, 5)) +
+    scale_y_continuous(limits = c(0, 5)) +
+    geom_abline(slope = 1, intercept = 0) +
+    coord_fixed()
+  
+  
+  # TPR vs FDR curve
+  df = df %>% na.omit()
+  df = df %>% 
+    dplyr::filter(n_patients == 20, iter == 1, cell_index == 1, ngenes == 50) %>% 
+    dplyr::filter(name %in% method_patientwise)
+  
+  # Prep cobra object
+  pval = df %>%
+    dplyr::select(X, name, p_val) %>%
+    tidyr::pivot_wider(values_from = p_val, names_from = name) %>%
+    dplyr::arrange(X) %>%
+    dplyr::select(!X) %>%
+    as.data.frame()
+  rownames(pval) = paste0("Gene", 1:nrow(pval))
+  
+  padj = df %>%
+    dplyr::select(X, name, adj_pval) %>%
+    tidyr::pivot_wider(values_from = adj_pval, names_from = name) %>%
+    dplyr::arrange(X) %>%
+    dplyr::select(!X) %>%
+    as.data.frame()
+  rownames(pval) = paste0("Gene", 1:nrow(pval))
+  
+  truth = df %>%
+    dplyr::select(X, status) %>%
+    dplyr::distinct() %>%
+    dplyr::arrange(X) %>%
+    dplyr::select(!X) %>%
+    as.data.frame()
+  
+  df %>% 
+    dplyr::group_by(name) %>% 
+    dplyr::summarise(TP = sum(adj_pval <= .05 & status == 1))
+  
+  df %>% 
+    dplyr::group_by(name) %>% 
+    dplyr::summarise(FP = sum(adj_pval <= .05 & status == 0))
+  
+  rownames(pval) = paste0("Gene", 1:nrow(pval))
+  rownames(padj) = paste0("Gene", 1:nrow(pval))
+  rownames(truth) = paste0("Gene", 1:nrow(pval))
+  truth$feature = rownames(truth)
+  
+  library(iCOBRA)
+  cobradata = iCOBRA::COBRAData(pval, truth = truth, padj = padj)
+  #cobradata <- calculate_adjp(cobradata, method = "BH")
+  cobraperf <- calculate_performance(cobradata, binary_truth = "status")
+  
+  cobraplot <- prepare_data_for_plot(cobraperf, colorscheme = "Dark2")
+  plot_fdrtprcurve(cobraplot)
+  plot_fpr(cobraplot)
+  plot_tpr(cobraplot)
+  
+  
+}
+
 
 plot_pvalues = function(author, method_cellwise, method_patientwise) {
-  d1 <- all_null_plots(author, FALSE, algos =method_cellwise, ct.indexes = c(1), pde.values = c(.05), n_samples_vec = c(20), only_tibble=TRUE)[[1]] %>%
+  d1 <- all_null_plots(author, FALSE, algos = method_cellwise, ct.indexes = c(1), pde.values = c(.05), n_samples_vec = c(20), only_tibble=TRUE)[[1]] %>%
     dplyr::mutate(ytype = "p-value", xtype="Cell-wise")
   d2 <- all_null_plots(author, TRUE, algos = method_patientwise, ct.indexes = c(1), pde.values = c(.05), n_samples_vec = c(20), only_tibble = T)[[1]] %>%
     dplyr::mutate(ytype = "p-value", xtype="Patient-wise")
@@ -244,74 +755,94 @@ plot_pvalues = function(author, method_cellwise, method_patientwise) {
     dplyr::mutate(ytype = "-log10 p-value", xtype="Cell-wise")
   d4 <- all_pow_plots(author, TRUE, algos = method_patientwise, ct.indexes = c(1), pde.values = c(.05), n_samples_vec = c(20), only_tibble = T)[[1]] %>%
     dplyr::mutate(ytype = "-log10 p-value", xtype="Patient-wise")
-
-
-  method_levels <- c("limma", "glmGamPoi", "glmGamPoi (cell)", "Nebula", "NEBULA", "Devil (mixed)", "Devil (base)", "Devil", "devil")
-
-  dplyr::bind_rows(d1, d2) %>%
+  
+  pA = dplyr::bind_rows(d1, d2) %>%
     dplyr::mutate(name = dplyr::if_else(grepl("Devil", name), "devil", name)) %>%
     dplyr::mutate(name = dplyr::if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
     dplyr::mutate(name = dplyr::if_else(grepl("Nebula", name), "NEBULA", name)) %>%
     dplyr::group_by(xtype, ytype) %>%
-    dplyr::mutate(name = factor(name, levels = method_levels)) %>%
-    ggplot(mapping = aes(x=observed_p_value, col=name, fill=name, y=name)) +
-    ggridges::geom_density_ridges(stat = "binline", bins = 20, scale = 0.95, draw_baseline = F, alpha = .7) +
-    scale_color_manual(values = sort(method_colors)) +
-    scale_fill_manual(values = sort(method_colors)) +
-    facet_grid(~xtype, scales = "free") +
+    dplyr::mutate(name = factor(name, levels = method_levels)) %>% 
+    filter(!is.na(observed_p_value)) %>%
+    group_by(name) %>%
+    arrange(observed_p_value, .by_group = TRUE) %>%
+    mutate(
+      rank = row_number(),
+      expected = rank / (n() + 1)
+    ) %>% 
+    ggplot(aes(x = expected, y = observed_p_value, color = name)) +
+    geom_point(size = 0.1, alpha = 0.6) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "black") +
+    labs(
+      x = "Expected uniform quantiles",
+      y = "Observed p-values"
+    ) +
     theme_bw() +
-    labs(x = "p-value", y="", col="Algorithm") +
-    scale_color_manual(values = method_colors) +
-    #facet_wrap(~paste0(n.genes, " genes")) +
-    theme(legend.position = "bottom") +
-    scale_y_discrete(expand = expand_scale(mult = c(0.01, .25))) +
-    theme(legend.position = "none") +
-    theme()
+    facet_wrap(~xtype)
 
-  dplyr::bind_rows(d3, d4) %>%
-    dplyr::mutate(name = if_else(grepl("Devil", name), "devil", name)) %>%
-    dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
-    dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name)) %>%
-    dplyr::group_by(xtype, ytype) %>%
-    dplyr::mutate(name = factor(name, levels = method_levels)) %>%
-    ggplot(mapping = aes(x=observed_p_value, col=name, fill=name, y=name)) +
-    ggridges::geom_density_ridges(stat = "binline", bins = 100, scale = 0.95, draw_baseline = F, alpha = .7) +
-    scale_color_manual(values = sort(method_colors)) +
-    scale_fill_manual(values = sort(method_colors)) +
-    facet_grid(~xtype, scales = "free") +
-    theme_bw() +
-    labs(x = bquote(-log[10]~ "(p-value)"), y="", col="Algorithm") +
-    scale_color_manual(values = method_colors) +
-    #facet_wrap(~paste0(n.genes, " genes")) +
-    theme(legend.position = "bottom") +
-    scale_x_continuous(transform = "log10") +
-    #scale_x_continuous(breaks = scales::pretty_breaks(n=3), limits = c(0,1)) +
-    scale_y_discrete(expand = expand_scale(mult = c(0.01, .25))) +
-    theme(legend.position = "none") +
-    theme()
+  # dplyr::bind_rows(d1, d2) %>%
+  #   dplyr::mutate(name = dplyr::if_else(grepl("Devil", name), "devil", name)) %>%
+  #   dplyr::mutate(name = dplyr::if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
+  #   dplyr::mutate(name = dplyr::if_else(grepl("Nebula", name), "NEBULA", name)) %>%
+  #   dplyr::group_by(xtype, ytype) %>%
+  #   dplyr::mutate(name = factor(name, levels = method_levels)) %>%
+  #   ggplot(mapping = aes(x=observed_p_value, col=name, fill=name, y=name)) +
+  #   ggridges::geom_density_ridges(stat = "binline", bins = 20, scale = 0.95, draw_baseline = F, alpha = .7) +
+  #   scale_color_manual(values = sort(method_colors)) +
+  #   scale_fill_manual(values = sort(method_colors)) +
+  #   facet_grid(~xtype, scales = "free") +
+  #   theme_bw() +
+  #   labs(x = "p-value", y="", col="Algorithm") +
+  #   scale_color_manual(values = method_colors) +
+  #   #facet_wrap(~paste0(n.genes, " genes")) +
+  #   theme(legend.position = "bottom") +
+  #   scale_y_discrete(expand = expand_scale(mult = c(0.01, .25))) +
+  #   theme(legend.position = "none") +
+  #   theme()
+
+  # dplyr::bind_rows(d3, d4) %>%
+  #   dplyr::mutate(name = if_else(grepl("Devil", name), "devil", name)) %>%
+  #   dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
+  #   dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name)) %>%
+  #   dplyr::group_by(xtype, ytype) %>%
+  #   dplyr::mutate(name = factor(name, levels = method_levels)) %>%
+  #   ggplot(mapping = aes(x=observed_p_value, col=name, fill=name, y=name)) +
+  #   ggridges::geom_density_ridges(stat = "binline", bins = 100, scale = 0.95, draw_baseline = F, alpha = .7) +
+  #   scale_color_manual(values = sort(method_colors)) +
+  #   scale_fill_manual(values = sort(method_colors)) +
+  #   facet_grid(~xtype, scales = "free") +
+  #   theme_bw() +
+  #   labs(x = bquote(-log[10]~ "(p-value)"), y="", col="Algorithm") +
+  #   scale_color_manual(values = method_colors) +
+  #   #facet_wrap(~paste0(n.genes, " genes")) +
+  #   theme(legend.position = "bottom") +
+  #   scale_x_continuous(transform = "log10") +
+  #   #scale_x_continuous(breaks = scales::pretty_breaks(n=3), limits = c(0,1)) +
+  #   scale_y_discrete(expand = expand_scale(mult = c(0.01, .25))) +
+  #   theme(legend.position = "none") +
+  #   theme()
 
 
-  pB <- dplyr::bind_rows(d1, d2) %>%
-    dplyr::mutate(name = dplyr::if_else(grepl("Devil", name), "devil", name)) %>%
-    dplyr::mutate(name = dplyr::if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
-    dplyr::mutate(name = dplyr::if_else(grepl("Nebula", name), "NEBULA", name)) %>%
-    dplyr::group_by(xtype, ytype) %>%
-    dplyr::mutate(name = factor(name, levels = method_levels)) %>%
-    ggplot(mapping = aes(x=observed_p_value, col=name, fill=name, y=name)) +
-    ggridges::geom_density_ridges(alpha = .7, scale = 1) +
-    #ggridges::geom_density_ridges(stat = "binline", bins = 20, scale = 0.95, draw_baseline = F) +
-    scale_color_manual(values = sort(method_colors)) +
-    scale_fill_manual(values = sort(method_colors)) +
-    facet_grid(~xtype, scales = "free") +
-    theme_bw() +
-    labs(x = "p-value", y="", col="Algorithm") +
-    scale_color_manual(values = method_colors) +
-    #facet_wrap(~paste0(n.genes, " genes")) +
-    theme(legend.position = "bottom") +
-    scale_x_continuous(breaks = scales::pretty_breaks(n=3), limits = c(0,1)) +
-    scale_y_discrete(expand = expand_scale(mult = c(0.01, .25))) +
-    theme(legend.position = "none") +
-    theme()
+  # pB <- dplyr::bind_rows(d1, d2) %>%
+  #   dplyr::mutate(name = dplyr::if_else(grepl("Devil", name), "devil", name)) %>%
+  #   dplyr::mutate(name = dplyr::if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
+  #   dplyr::mutate(name = dplyr::if_else(grepl("Nebula", name), "NEBULA", name)) %>%
+  #   dplyr::group_by(xtype, ytype) %>%
+  #   dplyr::mutate(name = factor(name, levels = method_levels)) %>%
+  #   ggplot(mapping = aes(x=observed_p_value, col=name, fill=name, y=name)) +
+  #   ggridges::geom_density_ridges(alpha = .7, scale = 1) +
+  #   #ggridges::geom_density_ridges(stat = "binline", bins = 20, scale = 0.95, draw_baseline = F) +
+  #   scale_color_manual(values = sort(method_colors)) +
+  #   scale_fill_manual(values = sort(method_colors)) +
+  #   facet_grid(~xtype, scales = "free") +
+  #   theme_bw() +
+  #   labs(x = "p-value", y="", col="Algorithm") +
+  #   scale_color_manual(values = method_colors) +
+  #   #facet_wrap(~paste0(n.genes, " genes")) +
+  #   theme(legend.position = "bottom") +
+  #   scale_x_continuous(breaks = scales::pretty_breaks(n=3), limits = c(0,1)) +
+  #   scale_y_discrete(expand = expand_scale(mult = c(0.01, .25))) +
+  #   theme(legend.position = "none") +
+  #   theme()
 
   pC <- dplyr::bind_rows(d3, d4) %>%
     dplyr::mutate(name = if_else(grepl("Devil", name), "devil", name)) %>%
@@ -499,19 +1030,25 @@ plot_ks = function(author, method_cellwise, method_patientwise) {
 
 plot_timing = function(author, competitor = "NEBULA") {
   a = author
-  timing_plot <- readRDS(paste0("nullpower/timing_results/", a,".rds")) %>%
-    dplyr::filter(algo %in% c("Devil (base)", "glmGamPoi (cell)", "Nebula")) %>%
-    dplyr::rename(name = algo) %>%
-    dplyr::mutate(name = if_else(grepl("Devil", name), "devil", name)) %>%
-    dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
-    dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name)) %>%
-    dplyr::rename(algo = name) %>%
-    dplyr::group_by(author, is.pb, n.sample, n.gene, int.ct, iter) %>%
-    dplyr::mutate(time_fold = timings[algo == competitor] / timings) %>%
-    dplyr::mutate(cell_order = ifelse(n.cells < 1000, "< 1k", if_else(n.cells > 20000, "> 20k", "1k-20k"))) %>%
-    dplyr::mutate(cell_order = factor(cell_order, levels = c("< 1k", "1k-20k", "> 20k"))) %>%
-    #dplyr::filter(algo %in% c("glmGamPoi", "NEBULA")) %>%
-    #ggplot(mapping = aes(x=cell_order, y=timings, col=algo)) +
+  
+  lfs = list.files("nullpower/timing_results/")[grepl(paste0(a, "_"), list.files("nullpower/timing_results/"))]
+  df_time = lapply(lfs, function(lf) {
+    readRDS(paste0("nullpower/timing_results/", a,".rds")) %>%
+      dplyr::filter(algo %in% c("Devil (base)", "glmGamPoi (cell)", "Nebula")) %>%
+      dplyr::rename(name = algo) %>%
+      dplyr::mutate(name = if_else(grepl("Devil", name), "devil", name)) %>%
+      dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
+      dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name)) %>%
+      dplyr::rename(algo = name) %>%
+      dplyr::group_by(author, is.pb, n.sample, n.gene, int.ct, iter) %>%
+      dplyr::mutate(time_fold = timings[algo == competitor] / timings) %>%
+      dplyr::mutate(cell_order = ifelse(n.cells < 1000, "< 1k", if_else(n.cells > 20000, "> 20k", "1k-20k"))) %>%
+      dplyr::mutate(cell_order = factor(cell_order, levels = c("< 1k", "1k-20k", "> 20k")))
+  }) %>% do.call("bind_rows", .)
+  
+  
+  
+  timing_plot <- df_time %>% 
     ggplot(mapping = aes(x=cell_order, y=time_fold, col=algo)) +
     geom_boxplot() +
     scale_color_manual(values = method_colors) +
@@ -639,7 +1176,9 @@ plot_MCCs_boxplots = function(a = NULL) {
   if (!is.null(a)) {
     res = res %>% dplyr::filter(author == a)
   }
-
+  
+  res$name %>% unique()
+  
   df_cellwise = res %>%
     na.omit() %>%
     dplyr::filter(is.pb == FALSE, name %in% method_cellwise) %>%
@@ -655,172 +1194,30 @@ plot_MCCs_boxplots = function(a = NULL) {
     dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name))
 
   df_all = dplyr::bind_rows(df_patientwise, df_cellwise)
-
   df_all %>%
     dplyr::mutate(name = factor(name, levels = method_levels)) %>%
     dplyr::group_by(name, ct.index, is.pb, author, patients) %>%
-    dplyr::summarise(MCC = median(MCC)) %>%
+    #dplyr::summarise(MCC = mean(MCC)) %>%
     dplyr::mutate(is.pb = ifelse(is.pb, "Patient-wise", "Cell-wise")) %>%
     ggplot(mapping = aes(x = name, y=MCC, col=name)) +
     geom_boxplot() +
     geom_point() +
     coord_flip() +
-    ggh4x::facet_nested(~is.pb+paste0(patients, " patients")) +
-    scale_y_continuous(labels = custom_labels) +
-    scale_color_manual(values = method_colors) +
+    ggh4x::facet_nested(ct.index~is.pb+paste0(patients, " patients")) +
+    # scale_y_continuous(labels = custom_labels) +
+    ggsci::scale_color_nejm() +
+    #scale_color_manual(values = method_colors) +
     theme_bw() +
     labs(x = "", col = "")
 }
 
-#
-#
-# df_cellwise %>%
-#   dplyr::group_by(name, is.pb, author) %>%
-#   dplyr::arrange(MCC) %>%
-#   dplyr::mutate(idx = row_number()) %>%
-#   ggplot(mapping = aes(x = idx, y=MCC, col=name)) +
-#   #geom_point() +
-#   geom_line() +
-#   scale_color_manual(values = method_colors) +
-#   facet_wrap(~author) +
-#   theme_bw()
-#
-#
-# model_name = df_cellwise$name[1]
-# d = lapply(unique(df_cellwise$name), function(model_name) {
-#   MCCs = df_cellwise %>% dplyr::filter(name == model_name)  %>% dplyr::pull(MCC)
-#   lapply(MCC_cuts, function(cut) {
-#     n = as.integer(f * length(MCCs))
-#     pobserved = lapply(1:1000, function(i) {
-#       sum(sample(MCCs, n) <= cut) / n
-#     }) %>% unlist()
-#     dplyr::tibble(name = model_name,
-#                   cut = cut,
-#                   y = median(pobserved),
-#                   ylow = stats::quantile(pobserved, .05),
-#                   yhigh = stats::quantile(pobserved, .95))
-#   }) %>% do.call("bind_rows", .)
-# }) %>% do.call("bind_rows", .)
-#
-# d %>%
-#   ggplot(mapping = aes(x = cut, y=y, ymin=ylow, ymax=yhigh, fill=name, col=name)) +
-#   geom_line() +
-#   geom_ribbon(alpha = .5, linewidth = 0) +
-#   scale_color_manual(values = method_colors) +
-#   scale_fill_manual(values = method_colors) +
-#   theme_bw()
-#
-#
-#
-# df_patientwise %>%
-#   dplyr::group_by(name, is.pb, author, patients) %>%
-#   dplyr::arrange(MCC) %>%
-#   dplyr::summarise(n = n()) %>%
-#   dplyr::mutate(idx = row_number()) %>%
-#   ggplot(mapping = aes(x = idx, y=MCC, col=name)) +
-#   #geom_point() +
-#   geom_line() +
-#   scale_color_manual(values = method_colors) +
-#   facet_grid(patients~author) +
-#   theme_bw()
-#
-# model_name = df_patientwise$name[1]
-# d = lapply(unique(df_patientwise$name), function(model_name) {
-#   MCCs = df_patientwise %>% dplyr::filter(name == model_name)  %>% dplyr::pull(MCC)
-#   lapply(MCC_cuts, function(cut) {
-#     n = as.integer(f * length(MCCs))
-#     pobserved = lapply(1:1000, function(i) {
-#       sum(sample(MCCs, n) <= cut) / n
-#     }) %>% unlist()
-#     dplyr::tibble(name = model_name,
-#                   cut = cut,
-#                   y = median(pobserved),
-#                   ylow = stats::quantile(pobserved, .05),
-#                   yhigh = stats::quantile(pobserved, .95))
-#   }) %>% do.call("bind_rows", .)
-# }) %>% do.call("bind_rows", .)
-#
-# d %>%
-#   ggplot(mapping = aes(x = cut, y=y, ymin=ylow, ymax=yhigh, fill=name, col=name)) +
-#   geom_line(linewidth = 1) +
-#   geom_ribbon(alpha = .25, linewidth = 0)
-#
-#
-#
-# MCC_cuts = seq(0, 1, by = .05)
-# f = .5
-#
-#
-#
-#
-# author = "hsc"
-# res <- readRDS("nullpower/final_res/results.rds")
-# a <- author
-#
-# df_cellwise = res %>%
-#   na.omit() %>%
-#   dplyr::filter(is.pb == FALSE, name %in% method_cellwise) %>%
-#   dplyr::mutate(name = if_else(grepl("Devil", name), "devil", name)) %>%
-#   dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
-#   dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name)) %>%
-#   dplyr::filter(author == a) %>%
-#   dplyr::group_by(name, is.pb, author, patients) %>%
-#   dplyr::summarise(y = mean(MCC))
-#
-# n = df_cellwise$name[1]
-# lapply(unique(df_cellwise$name), function(n) {
-#   MCCs = df_cellwise %>% dplyr::filter(name == n)  %>% dplyr::pull(MCC)
-# })
-#
-# MCC_cuts = seq(0, 1, by = .05)
-# f = .5
-#
-#
-#
-#
-#
-#
-# df_patientwise <- res %>%
-#   na.omit() %>%
-#   dplyr::filter(is.pb == TRUE, name %in% method_patientwise) %>%
-#   dplyr::mutate(name = if_else(grepl("Devil", name), "devil", name)) %>%
-#   dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
-#   dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name)) %>%
-#   dplyr::filter(author == a) %>%
-#   dplyr::group_by(name, is.pb, author, patients) %>%
-#   dplyr::summarise(y = mean(MCC))
-#
-# df = dplyr::bind_rows(df_cellwise, df_patientwise)
-# df %>%
-#   dplyr::mutate(y_name = paste0(is.pb, "_", patients)) %>%
-#   dplyr::group_by(y_name) %>%
-#   dplyr::mutate(yf = y / max(y)) %>%
-#   ggplot(mapping = aes(x=name, y=y_name, fill=yf)) +
-#   geom_raster()
-#
-#
-#
-#
-#
-#
-# df_cellwise %>%
-#   dplyr::group_by(name, is.pb, author, patients, ct.index) %>%
-#   dplyr::summarise(y = median(MCC)) %>%
-#   ggplot(mapping = aes(x = ct.index, y=y, col=name, linetype = as.factor(patients))) +
-#   geom_point() +
-#   geom_line() +
-#   scale_color_manual(values = method_colors) +
-#   facet_wrap(~author) +
-#   theme_bw()
-#
-# df_patientwise %>%
-#   dplyr::group_by(name, is.pb, author, patients, ct.index) %>%
-#   dplyr::summarise(y = mean(MCC)) %>%
-#   ggplot(mapping = aes(x = ct.index, y=y, col=name, linetype = as.factor(patients))) +
-#   geom_point() +
-#   geom_line() +
-#   scale_color_manual(values = method_colors) +
-#   facet_grid(patients~author) +
-#   theme_bw()
-#
-#
+
+author = "hsc"
+is.pb = F
+n_patients = 8
+ngenes = 12
+cell_index = 1
+iter = 1
+df = get_result(author, is.pb, n_patients, ngenes, cell_index, iter)
+
+

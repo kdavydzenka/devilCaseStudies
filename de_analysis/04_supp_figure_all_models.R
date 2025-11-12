@@ -2,8 +2,8 @@ rm(list = ls())
 require(patchwork)
 require(tidyverse)
 
-method_cellwise <- c("glmGamPoi (cell)", "Devil (base)", "limma", "Nebula", "glmGamPoi (fixed)", "edgeR", "edgeR (Pb)", "limma (Pb)")
-method_patientwise <- c("Nebula", "Devil (mixed)", "limma", "glmGamPoi (cell)", "glmGamPoi (fixed)", "edgeR", "edgeR (Pb)", "limma (Pb)")
+method_cellwise <- c("glmGamPoi (cell)", "Devil (base)", "limma", "Nebula", "glmGamPoi (fixed)", "edgeR", "edgeR (Pb)", "limma (Pb)", "flash")
+method_patientwise <- c("Nebula", "Devil (mixed)", "limma", "glmGamPoi (cell)", "glmGamPoi (fixed)", "edgeR", "edgeR (Pb)", "limma (Pb)", "flash")
 
 method_colors = c(
   "glmGamPoi (fixed)" = "#A22E29",
@@ -18,7 +18,8 @@ method_colors = c(
   "Devil (base)" = "#099668",
   "Devil (mixed)" = "#099668",
   "Devil" = "#099668",
-  "devil" = "#099668"
+  "devil" = "#099668",
+  "flash" = "black"
 )
 
 res = readRDS("nullpower/final_res/results.rds") %>%
@@ -105,3 +106,28 @@ final_plot = free(all_MCC_boxplots) + free(all_time_boxplots) + free(failure_rat
   plot_annotation(tag_levels = "a")
 
 ggsave("figures/all_models_comparison.pdf", width = 11, height = 16, units = "in", dpi = 600, plot = final_plot)
+
+
+method_patientwise = c("Nebula", "Devil (mixed)", "limma", "glmGamPoi (cell)", "flash")
+res$name %>% unique()
+res %>% 
+  dplyr::filter(is.pb == T, name %in% method_patientwise) %>%
+  dplyr::mutate(name = ifelse(grepl("Devil", name), "Devil", name)) %>% 
+  ggplot(aes(MCC, colour = name)) +
+  stat_ecdf(size = 1) +
+  theme_bw() +
+  facet_wrap(~author) +
+  scale_color_manual(values = method_colors)
+
+
+method_cellwise = c("Nebula", "Devil (base)", "limma", "glmGamPoi (cell)", "flash")
+res$name %>% unique()
+res %>% 
+  dplyr::filter(is.pb == F, name %in% method_cellwise) %>%
+  dplyr::mutate(name = ifelse(grepl("Devil", name), "Devil", name)) %>% 
+  ggplot(aes(MCC, colour = name)) +
+  stat_ecdf(size = 1) +
+  theme_bw() +
+  facet_wrap(~author) +
+  scale_color_manual(values = method_colors)
+

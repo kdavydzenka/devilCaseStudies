@@ -5,11 +5,13 @@ require(patchwork)
 source("utils_plots.R")
 source("utils_supp_plots.R")
 
-method_cellwise <- c("glmGamPoi (cell)", "Devil (base)", "limma", "Nebula")
-method_patientwise <- c("Nebula", "Devil (mixed)", "limma", "glmGamPoi (cell)")
-method_levels <- c("limma", "glmGamPoi", "glmGamPoi (cell)", "Nebula", "NEBULA", "Devil (mixed)", "Devil (base)", "Devil", "devil")
+method_cellwise = c("glmGamPoi (cell)", "Devil (base)", "Nebula", "Seurat (Cell)", "MAST (cell)", "edgeR (Pb)", "limma (Pb)")
+method_patientwise = c("glmGamPoi (cell)", "Devil (mixed)", "Nebula", "Seurat (Cell)", "MAST (cell)", "edgeR (Pb)", "limma (Pb)")
+method_levels = c("devil", "DevilSF (mixed)", "Devil (base)","glmGamPoi", "glmGamPoi (cell)", "NEBULA", "Nebula", "Seurat (Cell)", "MAST (cell)", "edgeR (Pb)", "limma (Pb)")
+#method_levels <- c("limma", "glmGamPoi", "glmGamPoi (cell)", "Nebula", "NEBULA", "Devil (mixed)", "Devil (base)", "Devil", "devil")
+readRDS("nullpower/final_res/results.rds")$name %>% unique()
 
-author = "hsc"
+author = "kumar"
 for (author in c("hsc", "kumar", "yazar", "bca")) {
   MCCs_boxplots = plot_MCCs_boxplots(author)
   pvalues_plot = plot_pvalues(author, method_cellwise, method_patientwise)

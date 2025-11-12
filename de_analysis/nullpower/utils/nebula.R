@@ -2,9 +2,15 @@
 nebula.mult <- function(count, df){
   pred <- model.matrix(~~1+tx_cell, data=df)
 
-  #data_g = nebula::group_cell(count=count,id=df$id,pred=pred)
+  data_g = nebula::group_cell(count=count, id=df$id, pred=pred)
 
-  #sf <- devil:::calculate_sf(count)
+  if (is.pb) {
+    sf = devil:::calculate_sf(count, method = "psinorm")
+  } else {
+    sf = rep(1, ncol(count))
+  }
+  # offset=Matrix::colSums(count)
+  # offset = devil:::calculate_sf(count, method = "psinorm")
 
   s <- Sys.time()
   sid <- df$id
@@ -12,7 +18,8 @@ nebula.mult <- function(count, df){
     count,
     id = df$id,
     pred = pred,
-    cpc=0,
+    cpc=0, 
+    offset = sf,
     mincp=0,
     ncore=1
   )
@@ -21,10 +28,10 @@ nebula.mult <- function(count, df){
 
   fit.result <- fit.nebula$summary
   rownames(fit.result) <- fit.result$gene
-
+  
   result <- fit.result %>%
     mutate(
-      Estimate=logFC_tx_cell,
+      Estimate=logFC_tx_cell / log(2),
       'Std. Error'=se_tx_cell,
       't value'=logFC_tx_cell/se_tx_cell,
       'Pr(>|t|)'=p_tx_cell
