@@ -10,6 +10,7 @@ de_analysis/nullpower/*test*
 .Rhistory
 *dataset*
 *.log
+*/logs/*
 *._*
 *.DS_Store
 muscle_case_study/results/MuscleRNA/fit/*devil*
