@@ -55,46 +55,38 @@ de_colors <- c("Down-reg" = "steelblue",
                "n.s." = "grey")
 
 
-###------------Volcano plot - explorative--------------###
+###----------Volcano plot - explorative-----------###
 
 lfc_cut <- 1.0
 pval_cut <- .05
 
 outliers_to_remove <- c("")
 
-prep_rna_data <- function(data, method, lfc_col = "lfc", pval_col = "adj_pval") {
-  # get column symbols
-  pval_sym <- sym(pval_col)
+prep_rna_data <- function(data, method, condition, pval_col = "adj_pval") {
   
-  # find minimal non-zero adjusted p-value
-  min_nonzero <- data %>%
-    filter(!!pval_sym > 0) %>%
-    summarise(min_val = min(!!pval_sym, na.rm = TRUE)) %>%
-    pull(min_val)
+  pvals <- data[[pval_col]]
+  min_nonzero <- suppressWarnings(min(pvals[pvals > 0], na.rm = TRUE))
+  if (!is.finite(min_nonzero)) min_nonzero <- 1e-300
   
-  # clean and annotate
-  data %>%
-    mutate(
+  data %>% 
+    dplyr::mutate(
       method = method,
-      !!pval_col := if_else(
-        !!pval_sym == 0,
-        min_nonzero,
-        !!pval_sym
-      )
-    ) %>%
+      condition  = condition,
+      "{pval_col}" := if_else(.data[[pval_col]] == 0, min_nonzero, .data[[pval_col]])
+    ) |>
     dplyr::filter(!name %in% outliers_to_remove)
 }
 
+rna_join <- purrr::cross_df(list(method = methods, condition = conditions)) %>% 
+  purrr::pmap_dfr(function(method, condition) {
+    df <- res_data[[glue::glue("{method}_{condition}")]]
+    prep_rna_data(df, method, condition)
+  })
 
-methods <- c("devil", "glmGamPoi", "nebula")
 
-rna_join <- map_df(methods, function(m) {
-  prep_rna_data(res_data[[glue("{m}_interaction")]], m)
-})
-
-rna_join <- rna_join %>%
+rna_join <- rna_join %>% 
   mutate(
-    isDE = (abs(lfc) >= lfc_cut) & (adj_pval <= pval_cut),
+    isDE = abs(lfc) >= lfc_cut & adj_pval <= pval_cut,
     DEtype = case_when(
       !isDE ~ "n.s.",
       lfc > 0 ~ "Up-reg",
@@ -102,33 +94,33 @@ rna_join <- rna_join %>%
     )
   )
 
-p4 <- ggplot(rna_join, aes(x = lfc, y = -log10(adj_pval))) +
-  geom_point(aes(color = DEtype), size = 1.5, alpha = 0.3) +
+p_all <- rna_join %>%
+  ggplot(mapping = aes(x = lfc, y = -log10(adj_pval))) +
+  geom_point(aes(color = DEtype), size = 1, alpha = 0.4) +
   scale_color_manual(values = de_colors) +
-  geom_vline(xintercept = c(-lfc_cut, lfc_cut), linetype = "dashed", color = "black") +
-  geom_hline(yintercept = -log10(pval_cut), linetype = "dashed", color = "black") +
-  theme_minimal(base_size = 12) +
-  facet_wrap(~factor(method, levels = methods), nrow = 1, scales = "free") +
-  scale_x_continuous(
-    breaks = scales::pretty_breaks(n = 6),
-    name = expression(Log[2]~FC)
-  ) +
-  labs(
-    y = expression(-log[10]~adjusted~P[value]),
-    color = "DE type",
-    title = "Interaction"
-  ) +
-  guides(color = guide_legend(override.aes = list(alpha = 1, size = 2)))
-
-p4
-
-
-join_p <- (p1 / p2 / p3 / p4)
-
-ggsave("plot/revision/volcanos_full_joint.png", dpi = 400, width = 12.0, height = 15.0, plot = join_p)
+  theme_bw() +
+  scale_x_continuous(breaks = seq(floor(min(rna_join$lfc)), 
+                                  ceiling(max(rna_join$lfc)), by = 2)) +
+  ggh4x::facet_nested(factor(method, levels = c("devil", "glmGamPoi", "nebula"))
+                      ~factor(condition, levels = c("age_only", "age_type1", "age_type2", "interaction")), 
+                      scales ="free", independent = "y")+
+  labs(x = expression(Log[2] ~ FC), y = expression(-log[10] ~ Pvalue), col = "DEtype") +
+  geom_vline(xintercept = c(-lfc_cut, lfc_cut), linetype = 'dashed') +
+  geom_hline(yintercept = -log10(pval_cut), linetype = "dashed") +
+  ggplot2::theme(legend.position = 'right',
+                 legend.text = element_text(size = 12, color = "black"),
+                 legend.title = element_text(size = 12, color = "black"),  
+                 strip.text = element_text(size = 12, face = "plain", color = "black"),
+                 axis.text = element_text(size = 12, color = "black"),
+                 axis.title = element_text(size = 12, color = "black"))+
+  guides(color = guide_legend(override.aes = list(size = 2, alpha = 1)))
+p_all
 
 
-### ---------Classify genes-------------- ###
+ggsave("plot/revision/volcanos_full_joint.png", dpi = 400, width = 12.0, height = 15.0, plot = p_all)
+
+
+### -------------Classify genes----------------- ###
 
 classify_genes <- function(method_name, res_list) {
   
@@ -194,7 +186,7 @@ de_summary <- de_genes %>%
 saveRDS(classified_all, file = "plot/revision/data_to_plot/classified_genes.RDS")
 
 
-#----------- Stacked barplot-------------#
+# Stacked barplot
 
 category_colors <- c(
   "Shared aging" = "#AD002AB2",
@@ -228,7 +220,7 @@ bar
 ggsave("plot/revision/barplot_gene_categ.png", dpi = 400, width = 6.0, height = 4.0, plot = bar)
 
 
-#--------------------Upset plot----------------------#
+# Upset plot
 
 de_genes <- de_genes %>%
   dplyr::filter(category != "Divergent regulation")
@@ -282,7 +274,7 @@ joint_upset
 ggsave("plot/revision/upset_gene_categ.png", dpi = 400, width = 12.0, height = 12.0, plot = joint_upset)
 
 
-# ---Volcano plot per test, color per category------#
+# Volcano plot per test, color per category
 
 volcano_long <- classified_all %>%
   dplyr::select(name, method, category,
@@ -343,7 +335,7 @@ p_volcanos
 ggsave("plot/revision/volcanos_full_geneCat.png", dpi = 400, width = 14.0, height = 10.0, plot = p_volcanos)
 
 
-###----------Gene Set Enrichment analysis-----------### 
+###------------Gene Set Enrichment analysis-------------### 
 
 # Use all genes per test ranked by score
 
@@ -460,7 +452,7 @@ results_selected <- results_df %>%
   dplyr::filter(Description %in% selected_pathways)
 
 
-pathway_categories <- tibble::tribble(
+path_cat_gsea <- tibble::tribble(
   ~Description, ~Category,
   # Muscle / Structural Development
   "myofibril assembly", "Muscle / Structural Development",
@@ -531,7 +523,7 @@ pathway_categories <- tibble::tribble(
 
 
 results_selected <- results_selected %>%
-  left_join(pathway_categories, by = "Description") 
+  left_join(path_cat_gsea, by = "Description") 
 
 results_selected$Category[is.na(results_selected$Category)] <- "Other"
 
@@ -543,7 +535,7 @@ heatmap_gsea <- ggplot(
   heatmap_data,
   aes(x = source, y = Description, fill = enrichmentScore)
 ) +
-  geom_tile(color = "grey40", linewidth = 0.3) +  # << clearer tile borders
+  geom_tile(color = "grey40", linewidth = 0.3) +  
   facet_grid(
     Category ~ Regulation,
     scales = "free_y",
@@ -588,7 +580,7 @@ heatmap_gsea <- ggplot(
 ggsave("plot/revision/heatmap_gsea.png", dpi = 400, width = 15.0, height = 10.0, plot = heatmap_gsea)
 
 
-###-------------Tissue Enrichment--------------###
+###--------------Tissue Enrichment---------------###
 
 get_tissue_specific_res <- function(gse_result, method) {
   # Extract significant GO terms
@@ -738,77 +730,5 @@ tissue_specific_dist_plot <- plot_tissue_distribution(best_df, method_colors)
 tissue_specific_dist_plot
 
 ggsave("plot/revision/tissue_dist_plot.png", dpi = 400, width = 9.0, height = 8.0, plot = tissue_specific_dist_plot)
-
-
-### Compare in full lfc_age vs lfc_age_cellType, pval_age vs pval_age_cellType ###
-
-#compare_age_cell <- function(method, data_list,
-                                    #lfc_col = "lfc",
-                                    #pval_col = "adj_pval") {
-  #age <- data_list[[glue("rna_{method}_age")]]
-  #age_cell <- data_list[[glue("rna_{method}_interaction")]]
-  
-  #merged <- inner_join(
-    #age %>% select(geneID, lfc_age = all_of(lfc_col), pval_age = all_of(pval_col)),
-    #age_cell %>% select(geneID, lfc_cell = all_of(lfc_col), pval_cell = all_of(pval_col)),
-    #by = "geneID"
-  #)
-  
-  # Plot 1: log2FC comparison
-  #p1 <- ggplot(merged, aes(x = lfc_age, y = lfc_cell)) +
-    #geom_point(alpha = 0.3, color = "black") +
-    #geom_smooth(method = "lm", se = T, color = "darkred") +
-    #labs(
-      #title = glue("LFC: {method}"),
-      #x = "log2FC (Age)",
-      #y = "log2FC (Interaction)"
-    #) +
-    #theme_minimal()
-  
-  # Plot 2: adjusted p-value comparison 
-  #p2 <- ggplot(merged, aes(x = -log10(pval_age), y = -log10(pval_cell))) +
-    #geom_point(alpha = 0.3, color = "black") +
-    #geom_smooth(method = "lm", se = T, color = "darkred") +
-    #labs(
-      #title = glue("adj_pval: {method}"),
-      #x = "-log10(adj_pval, Age)",
-      #y = "-log10(adj_pval, Interaction)"
-    #) +
-    #theme_minimal()
-  
-  #list(lfc_plot = p1, pval_plot = p2)
-#}
-
-
-# Run comparisons for all methods
-
-#plots <- map(c("devil", "glmGamPoi", "nebula"),
-             #~compare_age_cell(.x, rna_data))
-#names(plots) <- c("devil", "glmGamPoi", "nebula")
-
-# Access plots
-#plots[["devil"]]$lfc_plot  
-#plots[["devil"]]$pval_plot 
-
-#plots[["glmGamPoi"]]$lfc_plot  
-#plots[["glmGamPoi"]]$pval_plot  
-
-#plots[["nebula"]]$lfc_plot  
-#plots[["nebula"]]$pval_plot  
-
-#final_plot <- (
-  #plots[["devil"]]$lfc_plot + plots[["devil"]]$pval_plot
-#) /
-  #(
-    #plots[["glmGamPoi"]]$lfc_plot + plots[["glmGamPoi"]]$pval_plot
-  #) /
-  #(
-    #plots[["nebula"]]$lfc_plot + plots[["nebula"]]$pval_plot
-  #)
-
-#final_plot
-
-#ggsave("plot/revision/scatter_full_age_vs_interaction.png", dpi = 400, width = 10.0, height = 10.0, plot = final_plot)
-
 
 
