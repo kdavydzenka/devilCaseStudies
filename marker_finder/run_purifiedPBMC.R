@@ -26,30 +26,40 @@ gene_idxs = 1:nrow(cnt_mat)
 # UTILS
 
 devil.fit = function(ct, cnt_mat, design_matrix, contrast, sf) {
-  fit = devil::fit_devil(cnt_mat, design_matrix, overdispersion = T, size_factors = sf, 
+  s = Sys.time()
+  fit = devil::fit_devil(cnt_mat, design_matrix, overdispersion = "new", size_factors = sf, 
                          max_iter = 500, parallel.cores = 1, verbose = T)
-  test.res = devil::test_de(fit, c(0,1), max_lfc = 20, rep(1, nrow(design_matrix)))
+  e = Sys.time()
+  delta_time = e-s
+  test.res = devil::test_de(fit, c(0,1), max_lfc = 20, clusters = rep(1, nrow(design_matrix)))
   test.res %>% colnames()
   colnames(test.res) = c("gene", "pval", "padj", "lfc")
-  test.res %>% dplyr::mutate(cell_type = ct)
+  test.res %>% dplyr::mutate(cell_type = ct, time = delta_time)
 }
 
 glm.fit = function(ct, cnt_mat, design_matrix, contrast) {
+  s = Sys.time()
   fit = glmGamPoi::glm_gp(cnt_mat, design = design_matrix)
+  e = Sys.time()
+  delta_time = e-s
   test.res = glmGamPoi::test_de(fit, contrast = contrast)
   test.res = test.res %>% dplyr::select(name, pval, adj_pval, lfc)
   colnames(test.res) = c("gene", "pval", "padj", "lfc")
-  test.res %>% dplyr::mutate(cell_type = ct)
+  test.res %>% dplyr::mutate(cell_type = ct, time = delta_time)
 }
 
 nebula.fit = function(ct, cnt_mat, design_matrix, contrast) {
+  s = Sys.time()
   fit = nebula::nebula(cnt_mat, id = rep(1, nrow(design_matrix)), 
                        pred = design_matrix, mincp = 0, cpc = 0, ncore = 1)
+  e = Sys.time()
+  delta_time = e-s
   lfc = fit$summary$logFC_is_cellTRUE
   pval = fit$summary$p_is_cellTRUE
   gene = fit$summary$gene
   padj = p.adjust(pval, method = "BH")
-  dplyr::tibble(gene=gene, pval=pval, padj=padj, lfc=lfc, cell_type=ct)
+  dplyr::tibble(gene=gene, pval=pval, padj=padj, lfc=lfc, cell_type=ct) %>% 
+    dplyr::mutate(time = delta_time)
 }
 
 
@@ -63,7 +73,7 @@ for (ct in cell_types) {
   
   # Fit and Save
   dir.create("results/fits/", recursive = T)
-  f = devil.fit(ct, cnt_mat, design_matrix, contrast, sf = "psinorm")
+  f = devil.fit(ct, cnt_mat, design_matrix, contrast, sf = NULL)
   saveRDS(f, paste0("results/fits/devil_", ct, ".rds"))
   f = glm.fit(ct, cnt_mat, design_matrix, contrast)
   saveRDS(f, paste0("results/fits/glmGamPoi_", ct, ".rds"))
