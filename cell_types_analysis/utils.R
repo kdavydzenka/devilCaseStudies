@@ -164,7 +164,9 @@ perform_analysis <- function(seurat_obj, method = "devil") {
 
     if (method == 'devil') {
       s <- Sys.time()
-      fit <- devil::fit_devil(cc, dm, size_factors = T, overdispersion = T, init_overdispersion = 100, offset = 1e-6, verbose = TRUE, tolerance = 1e-3, max_iter = 100, parallel.cores = 1)
+      fit <- devil::fit_devil(cc, dm, size_factors = "normed_sum", overdispersion = "old", 
+                              init_overdispersion = 100, offset = 1e-6, verbose = TRUE, tolerance = 1e-3, 
+                              max_iter = 200, parallel.cores = 1)
       e <- Sys.time()
       res <- devil::test_de(fit, contrast = c(0,1), clusters = clusters, max_lfc = 50) %>% dplyr::mutate(cluster = c)
       #res <- devil::test_de(fit, contrast = c(0,1), clusters = 1:length(idxs), max_lfc = Inf) %>% dplyr::mutate(cluster = c)
@@ -177,7 +179,7 @@ perform_analysis <- function(seurat_obj, method = "devil") {
       res <- res %>% dplyr::as_tibble() %>% dplyr::select(name, pval, adj_pval, lfc) %>% dplyr::mutate(cluster = c)
     } else if (method == "nebula") {
       s <- Sys.time()
-      sf <- devil:::calculate_sf(cc)
+      sf <- devil:::calculate_sf(Y = cc, method = "normed_sum")
       data_g = nebula::group_cell(count=cc,id=clusters,pred=dm)
       fit <- nebula::nebula(data_g$count, id = data_g$id, pred = data_g$pred, ncore = 1, mincp = 0, cpc = 0, offset = sf)
       e <- Sys.time()

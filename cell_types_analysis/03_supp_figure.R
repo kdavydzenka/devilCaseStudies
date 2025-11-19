@@ -7,8 +7,8 @@ set.seed(SEED)
 
 args = commandArgs(trailingOnly=TRUE)
 
-dataset_name = "pbmc" 
-tissue = "blood"
+dataset_name = "liver" 
+tissue = "liver"
 
 ## Input data
 dataset_name <- args[1]

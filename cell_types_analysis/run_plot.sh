@@ -14,4 +14,4 @@ LC_ALL=C.UTF-8 Rscript 03_supp_figure.R BaronPancreasData pancreas
 LC_ALL=C.UTF-8 Rscript 03_supp_figure.R pbmc blood
 LC_ALL=C.UTF-8 Rscript 03_supp_figure.R liver liver
 LC_ALL=C.UTF-8 Rscript 03_supp_figure.R BigBloodData blood
-LC_ALL=C.UTF-8 Rscript 03_supp_figure.R BigLiverData liver
+# LC_ALL=C.UTF-8 Rscript 03_supp_figure.R BigLiverData liver
