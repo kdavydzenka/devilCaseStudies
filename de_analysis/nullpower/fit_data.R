@@ -27,7 +27,9 @@ list.func <- list(
   glmgp.cell.mult,
   nebula.mult,
   devil.fit, 
-  devil.overdisp #,
+  devil.overdisp.new,
+  devil.overdisp.old
+  #,
   # devil.base,
   # devil.mixed, 
   # devil.pure
@@ -40,7 +42,7 @@ method_names = c(
   # "limmaDupCorr (cell)",
   "glmGamPoi (cell)", 
   "NEBULA", 
-  "devil", "devil (overdisp)" #, "devil (base)", "devil (mixed)", "devil (pure)"
+  "devil", "devil (new overdisp)", "devil (old overdisp)" #, "devil (base)", "devil (mixed)", "devil (pure)"
 )
 
 set.seed(12345)

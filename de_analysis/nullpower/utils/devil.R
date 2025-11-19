@@ -65,7 +65,7 @@ devil.fit <- function(count, df) {
   return(result %>% as.matrix())
 }
 
-devil.overdisp <- function(count, df) {
+devil.overdisp.new <- function(count, df) {
   df$tx_cell = as.factor(df$tx_cell)
   design_matrix <- model.matrix(~1+tx_cell, data = df)
   clusters = as.factor(paste0(df$id))
@@ -80,7 +80,40 @@ devil.overdisp <- function(count, df) {
   fit <- devil::fit_devil(count, design_matrix, 
                           size_factors=sf, 
                           verbose=F, parallel.cores=1, 
-                          init_overdispersion = NULL, overdispersion = T)
+                          init_overdispersion = NULL, overdispersion = "new")
+  e <- Sys.time()
+  delta_time <- difftime(e, s, units = "secs") %>% as.numeric()
+  
+  fit$input_parameters$parallel = FALSE
+  test <- devil::test_de(fit, contrast=as.array(c(0,1)), clusters=clusters, parallel.cores = 1)
+  
+  beta <- fit$beta[,2]
+  pval <- test$pval
+  tval <- qnorm(1-pval/2) * sign(beta)
+  se <- beta/tval
+  
+  result <- dplyr::as_tibble(cbind(beta, se, tval, pval))
+  result$delta_time <- delta_time
+  colnames(result) <- c('Estimate', 'Std. Error', 't value', 'Pr(>|t|)', 'Time')
+  return(result %>% as.matrix())
+}
+
+devil.overdisp.old <- function(count, df) {
+  df$tx_cell = as.factor(df$tx_cell)
+  design_matrix <- model.matrix(~1+tx_cell, data = df)
+  clusters = as.factor(paste0(df$id))
+  
+  if (is.pb) {
+    sf = "psinorm"
+  } else {
+    sf = NULL
+  }
+  
+  s <- Sys.time()
+  fit <- devil::fit_devil(count, design_matrix, 
+                          size_factors=sf, 
+                          verbose=F, parallel.cores=1, 
+                          init_overdispersion = NULL, overdispersion = "old")
   e <- Sys.time()
   delta_time <- difftime(e, s, units = "secs") %>% as.numeric()
   
