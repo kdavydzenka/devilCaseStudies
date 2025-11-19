@@ -3,7 +3,6 @@ setwd("/Users/katsiarynadavydzenka/Documents/PhD_AI/devilCaseStudies/muscle_case
 
 pkgs <- c("tidyverse")
 sapply(pkgs, require, character.only = TRUE)
-#source("utils/utils_analysis.R")
 
 ###------------Load results---------------###
 
@@ -36,7 +35,8 @@ all_results <- cross_df(list(
 results_long <- all_results %>%
   unnest(data)
 
-###----------Compare lfc & adj_pvalue----------###
+
+###-------Compare lfc & adj_pvalue-------###
 
 comparison <- results_long %>%
   dplyr::select(geneID, method, condition, set, lfc, adj_pval) %>%
@@ -69,11 +69,34 @@ saveRDS(comparison, file = "results/subsampled_test/joint_results.RDS")
 
 ### Scatter plot per method × condition ###
 
+corr_lfc <- summary_stats %>% 
+  dplyr::select(method, condition, cor_lfc) %>% 
+  mutate(corr_label = sprintf("r = %.3f", cor_lfc))
+
+comparison <- comparison %>%
+  left_join(corr_lfc, by = c("method", "condition"))
+
 plot_lfc <- comparison %>%
   ggplot(aes(lfc_full, lfc_subsampled)) +
   geom_point(alpha = 0.3) +
-  facet_grid(method ~ condition) +
+  ggh4x::facet_nested(
+    factor(method, levels = c("devil", "glmGamPoi", "nebula")) ~
+      factor(condition, levels = c("age_only", "age_type1", "age_type2", "interaction")),
+    scales = "free",
+    independent = "x"
+  ) +
   geom_abline(slope = 1, intercept = 0, color = "red") +
+  
+  # Add correlation label in each panel
+  geom_text(
+    aes(
+      x = -Inf, y = Inf, label = corr_label
+    ),
+    hjust = -0.1,   
+    vjust = 1.2,    
+    size = 3
+  ) +
+  
   theme_bw() +
   labs(
     title = "Full vs Subsampled lfc comparison",
@@ -82,22 +105,44 @@ plot_lfc <- comparison %>%
   )
 plot_lfc
 
-ggsave("plot/revision/scatter_comparison_lfc.png", dpi = 400, width = 12.0, height = 15.0, plot = plot_lfc)
+ggsave("plot/revision/scatter_comparison_lfc.png", dpi = 400, width = 10.0, height = 10.0, plot = plot_lfc)
+
+
+corr_padj <- summary_stats %>% 
+  dplyr::select(method, condition, cor_adj_pval) %>% 
+  mutate(corr_label = sprintf("r = %.3f", cor_adj_pval))
+
+comparison <- comparison %>%
+  left_join(corr_padj, by = c("method", "condition"))
 
 plot_padj <- comparison %>%
   ggplot(aes(-log10(adj_pval_full), -log10(adj_pval_subsampled))) +
   geom_point(alpha = 0.3) +
-  #facet_grid(method ~ condition, scales = "free") +
-  ggh4x::facet_nested(factor(method, levels = c("devil", "glmGamPoi", "nebula"))
-                      ~factor(condition, levels = c("age_only", "age_type1", "age_type2", "interaction")), 
-                      scales ="free", independent = "x")+
+  
+  ggh4x::facet_nested(
+    factor(method, levels = c("devil", "glmGamPoi", "nebula")) ~ 
+      factor(condition, levels = c("age_only", "age_type1", "age_type2", "interaction")),
+    scales = "free",
+    independent = "x"
+  ) +
+  
   geom_abline(slope = 1, intercept = 0, color = "red") +
-  theme_bw()+
+  
+  # correlation label per panel
+  geom_text(
+    aes(x = -Inf, y = Inf, label = corr_label),
+    hjust = -0.1,   
+    vjust = 1.1,  
+    size = 3
+  ) +
+  
+  theme_bw() +
   labs(
     title = "Full vs Subsampled adj_pval comparison",
     x = "-log10(adj pvalue full)",
     y = "-log10(adj pvalue subsampled)"
   )
+
 plot_padj
 
-ggsave("plot/revision/scatter_comparison_padj.png", dpi = 400, width = 12.0, height = 15.0, plot = plot_padj)
+ggsave("plot/revision/scatter_comparison_padj.png", dpi = 400, width = 10.0, height = 10.0, plot = plot_padj)
