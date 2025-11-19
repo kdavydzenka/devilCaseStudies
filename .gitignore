@@ -13,5 +13,8 @@ de_analysis/nullpower/*test*
 */logs/*
 *._*
 *.DS_Store
+scaling_patients_and_covariates/results/*
 muscle_case_study/results/MuscleRNA/fit/*devil*
 de_analysis/nullpower/timing_results
+de_analysis/nullpower/figures/RDS/
+de_analysis/nullpower/data/
