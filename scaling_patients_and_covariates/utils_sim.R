@@ -48,7 +48,7 @@ simulate_splatter_simple <- function(
     params = p,
     group.prob = group_prob,
     de.prob = de_prob,
-    de.downProb = 0.5,
+    de.downProb = 0.05,
     de.facLoc = de_facLoc,
     de.facScale = de_facScale,
     verbose = FALSE
