@@ -7,7 +7,7 @@ set.seed(SEED)
 
 args = commandArgs(trailingOnly=TRUE)
 
-dataset_name = "liver" 
+dataset_name = "BigLiverData" 
 tissue = "liver"
 
 ## Input data
