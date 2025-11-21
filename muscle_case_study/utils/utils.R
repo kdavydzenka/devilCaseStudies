@@ -129,7 +129,7 @@ fit_de <- function(input_data,
       parallel.cores = 1,
       verbose = TRUE, 
       init_overdispersion = NULL, 
-      max_iter = 600, 
+      max_iter = 800, 
       tolerance = 1e-3, 
       batch_size = 1
     )
