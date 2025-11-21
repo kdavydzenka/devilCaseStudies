@@ -20,7 +20,7 @@ input_data <- read_data(dataset_name, data_path)
 input_data <- prepare_rna_input(input_data)
 
 # Define parameters
-methods <- c("nebula")
+methods <- c("devil")
 design_tests <- c("age_type1", "age_type2", "interaction")
 
 
