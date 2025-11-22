@@ -33,20 +33,20 @@ for (m in methods) {
     #s <- Sys.time()	  
     message("Fit coefficients for method: ", m, " | design_test: ", dt)
 
-    balanced_input <- subsample_balanced_cells(input_data)
+    #balanced_input <- subsample_balanced_cells(input_data)
 
-    fit <- fit_de(balanced_input, method = m, design_type = "interaction")
+    fit <- fit_de(input_data, method = m, design_type = "interaction")
 
     # Run DE test
     de_res <- de_test(
-      balanced_input,
+      input_data,
       fit,
       method = m,
       design_test = dt
     )
 
     # Save results
-    save_path <- paste0("results/", dataset_name, "/subsampled/")
+    save_path <- paste0("results/", dataset_name, "/full/")
     if (!dir.exists(save_path)) dir.create(save_path, recursive = TRUE)
 
     saveRDS(de_res, paste0(save_path, m, "_", dt, ".RDS"))
