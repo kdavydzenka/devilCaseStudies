@@ -21,7 +21,8 @@ input_data <- prepare_rna_input(input_data)
 
 # Define parameters
 methods <- c("devil")
-design_tests <- c("age_type1", "age_type2", "interaction")
+#design_tests <- c("age_type1", "age_type2", "interaction")
+design_tests <- c("age_only")
 
 
 ### Fit an DE test ###
@@ -33,20 +34,20 @@ for (m in methods) {
     #s <- Sys.time()	  
     message("Fit coefficients for method: ", m, " | design_test: ", dt)
 
-    #balanced_input <- subsample_balanced_cells(input_data)
+    balanced_input <- subsample_balanced_cells(input_data)
 
-    fit <- fit_de(input_data, method = m, design_type = "interaction")
+    fit <- fit_de(balanced_input, method = m, design_type = "age_only")
 
     # Run DE test
     de_res <- de_test(
-      input_data,
+      balanced_input,
       fit,
       method = m,
       design_test = dt
     )
 
     # Save results
-    save_path <- paste0("results/", dataset_name, "/full/")
+    save_path <- paste0("results/", dataset_name, "/subsampled/")
     if (!dir.exists(save_path)) dir.create(save_path, recursive = TRUE)
 
     saveRDS(de_res, paste0(save_path, m, "_", dt, ".RDS"))

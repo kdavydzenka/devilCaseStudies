@@ -175,6 +175,8 @@ de_test <- function(input_data,
     contrast <- c(0, 1, 0, 1)
   } else if (design_test == "interaction") {
     contrast <- c(0, 0, 0, 1)
+  } else if (design_test == "age_only") {
+    contrast <- c(0, 1)	  
   } else {
     stop("design_test not recognized")
   }
