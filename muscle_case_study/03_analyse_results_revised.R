@@ -116,8 +116,7 @@ p_all <- rna_join %>%
   guides(color = guide_legend(override.aes = list(size = 2, alpha = 1)))
 p_all
 
-
-ggsave("plot/revision/volcanos_full_joint.png", dpi = 400, width = 12.0, height = 15.0, plot = p_all)
+ggsave("plot/revision/volcanos_full_joint.png", dpi = 400, width = 14.0, height = 10.0, plot = p_all)
 
 
 ### -------------Classify genes----------------- ###
@@ -308,7 +307,7 @@ p_volcanos <- volcano_long %>%
   ggplot(mapping = aes(x = lfc, y = -log10(padj))) +
   geom_point(data = subset(volcano_long, category %in% c("Shared aging")),
              aes(col = category), size = 1.0, alpha = 0.3) +
-  geom_point(data = subset(volcano_long, category %in% c("TypeI specific", "TypeII specific", "Interaction only",
+  geom_point(data = subset(volcano_long, category %in% c("Type I specific", "Type II specific", "Interaction only",
                                                               "Age global only", "Divergent regulation",
                                                               "Not significant")),
              aes(col = category), size = 1.0, alpha = 0.5) +
@@ -365,7 +364,7 @@ gsea_all <- c(
   gsea_all,
   list(
     devil_Age = devil_Age,
-    glmGamPoi_Age = gseGO_glm,
+    glmGamPoi_Age = glmGamPoi_Age,
     nebula_Age = nebula_Age
   )
 )
@@ -391,62 +390,58 @@ names(gsea_all_simplified) <- c("devil_Type I", "devil_Type II", "devil_Interact
                                 "nebula_Type I", "nebula_Type II", "nebula_Interaction",
                                 "devil_Age", "glmGamPoi_Age", "nebula_Age")
 
+res <- gsea_all_simplified[["nebula_Age"]]@result
+
+
 results_list <- lapply(gsea_all_simplified, function(x) x@result)
 
 results_df <- dplyr::bind_rows(results_list, .id = "source")
 results_df <- results_df %>%
   mutate(Regulation = ifelse(NES > 0, "Up", "Down"))
 
-selected_pathways <- c("myofibril assembly",
-                       "actin-mediated cell contraction",
-                       "muscle cell development",
-                       "homophilic cell adhesion via plasma membrane adhesion molecules",
-                       "positive regulation of cytokine production",
-                       "ncRNA processing",
-                       "cellular nitrogen compound catabolic process",
-                       "immune system process",
-                       "myelin maintenance",
+selected_pathways <- c("myelin maintenance",
                        "myelination in peripheral nervous system",
                        "peripheral nervous system axon ensheathment",
-                       "striated muscle cell development",
-                       "regulation of ubiquitin protein ligase activity",
-                       "blood vessel endothelial cell migration",
-                       "regulation of leukocyte migration",
+                       "myofibril assembly",
+                       "muscle cell development",
+                       "actin-mediated cell contraction",
+                       "actomyosin structure organization",
+                       "muscle contraction",
+                       "muscle system process",
+                       "actin filament-based process",
+                       "acute inflammatory response",
                        "regulation of cell division",
+                       "epithelial cell proliferation",
                        "immune response-activating cell surface receptor signaling pathway",
+                       "macroautophagy",
+                       "positive regulation of apoptotic process",
+                       "homophilic cell adhesion via plasma membrane adhesion molecules",
                        "leukocyte apoptotic process",
                        "regulation of G2/M transition of mitotic cell cycle",
-                       "tRNA metabolic process",
-                       "regulation of apoptotic signaling pathway",
-                       "ribosome biogenesis",
-                       "response to endoplasmic reticulum stress",
-                       "cellular component assembly involved in morphogenesis",
-                       "regulation of substrate adhesion-dependent cell spreading",
-                       "T cell mediated immunity",
-                       "skeletal muscle cell differentiation",
-                       "cellular response to hypoxia",
-                       "epithelial cell proliferation",
-                       "regulation of voltage-gated calcium channel activity",
+                       "positive regulation of cytokine production",
+                       "ERK1 and ERK2 cascade",
+                       "positive regulation of long-term synaptic potentiation",
                        "regulation of myeloid leukocyte mediated immunity",
-                       "nucleosome organization",
+                       "regulation of transcription by RNA polymerase III",
                        "aerobic electron transport chain",
                        "positive regulation of muscle contraction",
+                       "iron ion transport",
                        "intrinsic apoptotic signaling pathway in response to endoplasmic reticulum stress",
-                       "cellular oxidant detoxification",
                        "transmission of nerve impulse",
                        "response to interleukin-4",
-                       "mast cell activation involved in immune response",
-                       "lysosome organization",
+                       "regulation of apoptotic signaling pathway",
                        "leukocyte migration",
-                       "leukocyte cell-cell adhesion",
-                       "negative regulation of cyclin-dependent protein serine/threonine kinase activity",
                        "mitochondrial ATP synthesis coupled electron transport",
-                       "mitochondrial respiratory chain complex assembly",
-                       "negative regulation of interleukin-1 production",
-                       "regulation of endothelial cell apoptotic process",
-                       "positive regulation of cytokine-mediated signaling pathway",
-                       "signal transduction in response to DNA damage",
-                       "leukocyte apoptotic process")
+                       "striated muscle cell development",
+                       "endothelial cell apoptotic process",
+                       "positive regulation of response to cytokine stimulus",
+                       "leukocyte cell-cell adhesion",
+                       "proton transmembrane transport",
+                       "proteolysis",
+                       "cellular component assembly involved in morphogenesis",
+                       "T cell mediated immunity",
+                       "skeletal muscle cell differentiation",
+                       "cellular response to hypoxia")
 
 results_selected <- results_df %>%
   dplyr::filter(Description %in% selected_pathways)
@@ -454,71 +449,65 @@ results_selected <- results_df %>%
 
 path_cat_gsea <- tibble::tribble(
   ~Description, ~Category,
-  # Muscle / Structural Development
-  "myofibril assembly", "Muscle / Structural Development",
-  "actin-mediated cell contraction", "Muscle / Structural Development",
-  "muscle cell development", "Muscle / Structural Development",
-  "striated muscle cell development", "Muscle / Structural Development",
-  "skeletal muscle cell differentiation", "Muscle / Structural Development",
-  "positive regulation of muscle contraction", "Muscle / Structural Development",
+  # Muscle / Development / Contractile processes
+  "myofibril assembly", "Muscle / Development / Contractile processes",
+  "muscle cell development", "Muscle / Development / Contractile processes",
+  "striated muscle cell development", "Muscle / Development / Contractile processes",
+  "skeletal muscle cell differentiation", "Muscle / Development / Contractile processes",
+  "actin-mediated cell contraction", "Muscle / Development / Contractile processes",
+  "actomyosin structure organization", "Muscle / Development / Contractile processes",
+  "actin filament-based process", "Muscle / Development / Contractile processes",
+  "muscle contraction", "Muscle / Development / Contractile processes",
+  "muscle system process", "Muscle / Development / Contractile processes",
+  "positive regulation of muscle contraction", "Muscle / Development / Contractile processes",
   
   # Cell Adhesion & Morphogenesis
   "homophilic cell adhesion via plasma membrane adhesion molecules", "Cell Adhesion / Morphogenesis",
   "cellular component assembly involved in morphogenesis", "Cell Adhesion / Morphogenesis",
-  "regulation of substrate adhesion-dependent cell spreading", "Cell Adhesion / Morphogenesis",
   
-  # Immune / Inflammatory Response
-  "immune system process", "Immune / Inflammatory Response",
-  "positive regulation of cytokine production", "Immune / Inflammatory Response",
-  "regulation of leukocyte migration", "Immune / Inflammatory Response",
-  "immune response-activating cell surface receptor signaling pathway", "Immune / Inflammatory Response",
-  "T cell mediated immunity", "Immune / Inflammatory Response",
-  "mast cell activation involved in immune response", "Immune / Inflammatory Response",
-  "response to interleukin-4", "Immune / Inflammatory Response",
-  "regulation of myeloid leukocyte mediated immunity", "Immune / Inflammatory Response",
-  "leukocyte migration", "Immune / Inflammatory Response",
-  "leukocyte cell-cell adhesion", "Immune / Inflammatory Response",
-  "positive regulation of cytokine-mediated signaling pathway", "Immune / Inflammatory Response",
-  "negative regulation of interleukin-1 production", "Immune / Inflammatory Response",
+  # Immune System / Inflammation
+  "immune response–activating cell surface receptor signaling pathway", "Immune System / Inflammation",
+  "positive regulation of cytokine production", "Immune System / Inflammation",
+  "T cell mediated immunity", "Immune System / Inflammation",
+  "leukocyte migration", "Immune System / Inflammation",
+  "leukocyte cell-cell adhesion", "Immune System / Inflammation",
+  "regulation of myeloid leukocyte mediated immunity", "Immune System / Inflammation",
+  "positive regulation of cytokine production", "Immune System / Inflammation",
+  "response to interleukin-4", "Immune System / Inflammation",
+  "positive regulation of response to cytokine stimulus", "Immune System / Inflammation",
+  "acute inflammatory response", "Immune System / Inflammation",
   
   # Apoptosis 
   "leukocyte apoptotic process", "Apoptosis",
-  "regulation of apoptotic signaling pathway", "Apoptosis",
+  "positive regulation of apoptotic process", "Apoptosis",
   "intrinsic apoptotic signaling pathway in response to endoplasmic reticulum stress", "Apoptosis",
-  "regulation of endothelial cell apoptotic process", "Apoptosis",
+  "endothelial cell apoptotic process", "Apoptosis",
+  "regulation of apoptotic signaling pathway", "Apoptosis",
+  "macroautophagy", "Apoptosis",
   
-  # Cell Cycle / Division
-  "regulation of cell division", "Cell Cycle / Division",
-  "regulation of G2/M transition of mitotic cell cycle", "Cell Cycle / Division",
-  "negative regulation of cyclin-dependent protein serine/threonine kinase activity", "Cell Cycle / Division",
-  "signal transduction in response to DNA damage", "Cell Cycle / Division",
+  # Cell Cycle 
+  "regulation of cell division", "Cell Cycle",
+  "regulation of G2/M transition of mitotic cell cycle", "Cell Cycle",
+  "epithelial cell proliferation", "Cell Cycle",
   
-  # RNA / Protein Metabolism
-  "ncRNA processing", "RNA / Protein Metabolism",
-  "tRNA metabolic process", "RNA / Protein Metabolism",
-  "ribosome biogenesis", "RNA / Protein Metabolism",
-  "regulation of ubiquitin protein ligase activity", "RNA / Protein Metabolism",
-  "response to endoplasmic reticulum stress", "RNA / Protein Metabolism",
+  # Metabolism & Mitochondrial Function
+  "aerobic electron transport chain", "Metabolism & Mitochondrial Function",
+  "mitochondrial ATP synthesis coupled electron transport", "Metabolism & Mitochondrial Function",
+  "proton transmembrane transport", "Metabolism & Mitochondrial Function",
+  "iron ion transport", "Metabolism & Mitochondrial Function",
+  "proteolysis", "Metabolism & Mitochondrial Function",
   
-  # Mitochondrial / Oxidative Metabolism
-  "aerobic electron transport chain", "Mitochondrial / Oxidative Metabolism",
-  "mitochondrial ATP synthesis coupled electron transport", "Mitochondrial / Oxidative Metabolism",
-  "mitochondrial respiratory chain complex assembly", "Mitochondrial / Oxidative Metabolism",
-  "cellular oxidant detoxification", "Mitochondrial / Oxidative Metabolism",
-  
-  # Nervous System / Myelination
-  "myelin maintenance", "Nervous System / Myelination",
-  "myelination in peripheral nervous system", "Nervous System / Myelination",
-  "peripheral nervous system axon ensheathment", "Nervous System / Myelination",
-  "transmission of nerve impulse", "Nervous System / Myelination",
+  # Nervous System / Neuronal Function
+  "myelin maintenance", "Nervous System / Neuronal Function",
+  "myelination in peripheral nervous system", "Nervous System / Neuronal Function",
+  "peripheral nervous system axon ensheathment", "Nervous System / Neuronal Function",
+  "transmission of nerve impulse", "Nervous System / Neuronal Function",
+  "positive regulation of long-term synaptic potentiation", "Nervous System / Neuronal Function",
   
   # Others
-  "blood vessel endothelial cell migration", "Vascular Biology",
-  "cellular nitrogen compound catabolic process", "Metabolism",
-  "nucleosome organization", "Chromatin / Epigenetic Regulation",
-  "cellular response to hypoxia", "Stress Response",
-  "lysosome organization", "Organelle Organization",
-  "epithelial cell proliferation"
+  "ERK1 and ERK2 cascade", "Signaling",
+  "regulation of transcription by RNA polymerase III", "Transcriptional regulation",
+  "cellular response to hypoxia", "Stress Response"
 )
 
 
@@ -530,6 +519,9 @@ results_selected$Category[is.na(results_selected$Category)] <- "Other"
 heatmap_data <- results_selected %>%
   dplyr::filter(Description %in% selected_pathways) %>%
   dplyr::select(Category, source, Description, enrichmentScore, Regulation)
+
+heatmap_data$source <- gsub("_", " ", heatmap_data$source)
+
 
 heatmap_gsea <- ggplot(
   heatmap_data,
@@ -577,7 +569,7 @@ heatmap_gsea <- ggplot(
     legend.text = element_text(size = 9)
   )
 
-ggsave("plot/revision/heatmap_gsea.png", dpi = 400, width = 15.0, height = 10.0, plot = heatmap_gsea)
+ggsave("plot/revision/heatmap_gsea.png", dpi = 400, width = 16.0, height = 10.0, plot = heatmap_gsea)
 
 
 ###--------------Tissue Enrichment---------------###
@@ -718,14 +710,20 @@ method_colors <- c(
   "devil_Age" = "#099668",
   "devil_Type I" = "#2AA198",
   "devil_Type II" = "#859900",
+  "devil_Interaction" = "darkseagreen3",
   "glmGamPoi_Age" = "#EAB578",
   "glmGamPoi_Type I" = "#FFC300",
   "glmGamPoi_Type II" = "#FDE72F",
   "glmGamPoi_Interaction" = "#FF9473",
   "nebula_Age"= "steelblue",
   "nebula_Type I" = "#56B4E9",
-  "nebula_Type II" = "#88CCEE"
+  "nebula_Type II" = "#88CCEE",
+  "nebula_Interaction" = "lightsteelblue1"
 )
+names(method_colors) <- gsub("_", " ", names(method_colors))
+
+best_df$method <- gsub("_", " ", best_df$method)
+
 tissue_specific_dist_plot <- plot_tissue_distribution(best_df, method_colors)
 tissue_specific_dist_plot
 
