@@ -3,10 +3,10 @@ rm(list = ls())
 require(tidyverse)
 require(patchwork)
 
-method_cellwise = c("glmGamPoi (cell)", "Devil (base)", "limma (cell)", "Nebula", "Seurat (Cell)", "MAST (cell)", 
-                    "edgeR (cell)", "edgeR (PB)", "limma (Pb)")
-method_patientwise = c("glmGamPoi (cell)", "Devil (mixed)", "limma (cell)", "Nebula", "Seurat (Cell)", 
-                       "MAST (cell)", "edgeR (cell)", "edgeR (PB)", "limma (Pb)")
+# method_cellwise = c("glmGamPoi (cell)", "Devil (base)", "limma (cell)", "Nebula", "Seurat (Cell)", "MAST (cell)", 
+#                     "edgeR (cell)", "edgeR (PB)", "limma (Pb)")
+# method_patientwise = c("glmGamPoi (cell)", "Devil (mixed)", "limma (cell)", "Nebula", "Seurat (Cell)", 
+#                        "MAST (cell)", "edgeR (cell)", "edgeR (PB)", "limma (Pb)")
 
 # FPR test ####
 beta <- 0.5
@@ -15,8 +15,8 @@ res <- dplyr::tibble()
 
 authors = c("bca", "hsc", "yazar", "kumar")
 
-a = "bca"
-idx = 3
+a = "hsc"
+idx = 327
 
 for (a in authors) {
   grid = readRDS(paste0("data/",a,"_param_grid.rds"))
@@ -113,4 +113,3 @@ res %>%
   scale_x_continuous(transform = "log10")
 
 saveRDS(res, "final_res/results.rds")
-

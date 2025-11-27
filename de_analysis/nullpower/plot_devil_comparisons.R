@@ -1,29 +1,15 @@
+
 rm(list=ls())
 library(ggrepel)
 library(tidyr)
 library(magrittr)
 library(dplyr)
 
-NAME_MAPPING = c(
-  "edgeR..Pb." = "edgeR (Pb)",
-  "edgeR..cell." = "edgeR (cell)",
-  "MAST..cell." = "MAST (cell)",
-  "Seurat..cell." = "Seurat (cell)",
-  "limma..Pb." = "limma (Pb)",
-  "limma..cell." = "limma (cell)",
-  "glmGamPoi..Pb." = "glmGamPoi (Pb)",
-  "glmGamPoi..cell." = "glmGamPoi (cell)",
-  "NEBULA" = "Nebula",
-  "devil..base." = "Devil (base)",
-  "devil..mixed." = "Devil (mixed)",
-  "devil..sf.base." = "DevilSF (base)",
-  "devil..sf.mixed." = "DevilSF (mixed)"
-)
-
 MY_PALETTE = c(
-  "devil (new overdisp)" = "goldenrod",
   "devil" = "#099668",
-  "devil (old overdisp)" = "darkslategray"
+  "devil (new overdisp)" = "goldenrod",
+  "devil (old overdisp)" = "#374F6B",
+  "devil (MOM overdisp)" = "slategray"
 )
 
 METHOD_LEVELS = MY_PALETTE %>% names()
@@ -113,6 +99,7 @@ get_all_results = function(author) {
 
 plot_MCCs_boxplots = function(a, cellwise_methods, patientwise_methods) {
   res = readRDS("final_res/results.rds")
+  res$name %>% unique()
   if (!is.null(a)) {
     res = res %>% dplyr::filter(author == a)
   }
@@ -590,8 +577,7 @@ ecfd_ks_plot = plot_ks(author = "hsc",
                        cellwise_methods = method_cellwise_main, 
                        patientwise_methods = method_patientwise_main)
 
-ptiming_ratio = plot_timing("hsc", names(MY_PALETTE), ratio = "devil")
-ptiming_ratio = plot_timing("hsc", c("devil", "NEBULA", "glmGamPoi (cell)", "devil (overdisp)"), ratio = "NEBULA")
+ptiming_ratio = plot_timing("hsc", names(MY_PALETTE), ratio = "devil (old overdisp)")
 
 dir.create("figures/RDS/main", recursive = T)
 saveRDS(qq_plot_hsc, "figures/RDS/main/qq_plot.rds")

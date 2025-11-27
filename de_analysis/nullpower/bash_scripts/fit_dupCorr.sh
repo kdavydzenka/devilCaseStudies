@@ -12,7 +12,7 @@ sbatch <<EOF
 #SBATCH --error=logs/%x_%A_%a.err
 #SBATCH --partition=GENOA
 #SBATCH --mem=32GB
-#SBATCH --time=4:00:00
+#SBATCH --time=1:00:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
 #SBATCH --array=1-360%60 

@@ -28,7 +28,8 @@ list.func <- list(
   nebula.mult,
   devil.fit, 
   devil.overdisp.new,
-  devil.overdisp.old
+  devil.overdisp.old,
+  devil.overdisp.MOM
   #,
   # devil.base,
   # devil.mixed, 
@@ -42,7 +43,11 @@ method_names = c(
   # "limmaDupCorr (cell)",
   "glmGamPoi (cell)", 
   "NEBULA", 
-  "devil", "devil (new overdisp)", "devil (old overdisp)" #, "devil (base)", "devil (mixed)", "devil (pure)"
+  "devil (Poisson)", 
+  "devil (I-NB)", 
+  "devil (MLE-NB)", 
+  "devil (MOM-NB)"
+  #, "devil (base)", "devil (mixed)", "devil (pure)"
 )
 
 set.seed(12345)
@@ -55,7 +60,7 @@ stopifnot(length(args) >= 1)
 author <- args[1]
 stopifnot(author %in% c("bca","yazar","hsc","kumar"))
 
-# author = "yazar"
+# author = "hsc"
 # idx = 112
 # author = "bca"
 # idx = 39
