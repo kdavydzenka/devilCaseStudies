@@ -50,8 +50,6 @@ whole_res = lapply(1:nrow(grid), function(i) {
 
 whole_res = dplyr::bind_rows(whole_res)
 
-whole_res
-
 whole_res %>% 
   ggplot(mapping = aes(x = name, y = MCC, col = name, linetype = assignment)) +
   facet_grid(scale_regime~effect_regime+batch_regime) +
