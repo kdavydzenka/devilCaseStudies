@@ -191,5 +191,5 @@ plot_evaluation = function(scale_regimes) {
 p_small = plot_evaluation(scale_regimes = "small")
 p_large = plot_evaluation(scale_regimes = "large")
 
-ggsave("figures/bench_batch_small.pdf", plot = p_small, width = 10, height = 8, units = "in")
-ggsave("figures/bench_batch_large.pdf", plot = p_large, width = 10, height = 8, units = "in")
+ggsave("figures/bench_batch_small.pdf", plot = p_small, width = 12, height = 9, units = "in")
+ggsave("figures/bench_batch_large.pdf", plot = p_large, width = 12, height = 9, units = "in")
