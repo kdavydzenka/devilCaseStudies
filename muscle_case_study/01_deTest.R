@@ -25,7 +25,6 @@ methods <- c("nebula")
 design_tests <- c("age_type1", "age_type2", "interaction")
 path_fit_res <- "/orfeo/cephfs/scratch/cdslab/kdavydzenka/sc_devil/results/muscle/new/"
 
-
 # Run DE tests
 for (m in methods) {
   for (dt in design_tests) {

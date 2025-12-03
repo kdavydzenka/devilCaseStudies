@@ -4,7 +4,9 @@ library(splatter)
 library(scater)
 library(Seurat)
 
-sparsity_level = .95
+# sparsity_level = .95
+sparsity_level = .40
+dropout = rep(c(0.01, 0.05),times=3)
 # dropout = rep(c(0.01, 0.05),times=3) # sparsity 40%
 # dropout = rep(c(3.7, 3.9),times=3)   # sparsity 80%
 
@@ -127,8 +129,9 @@ for (x in 1:dim(combi)[1]){
   
   sim <- simulate(id=id, dropout=combi$d[[x]], batchCells = c(combi$b1[[x]],combi$b2[[x]]),
                   group.prob = group_ratio[[x]])
-  
-  counts <- ceiling(sim$counts/3.83)
+
+  counts <- sim$counts
+  #counts <- ceiling(sim$counts/3.83)
   geneinfo <- sim$geneinfo
   cellinfo <- sim$cellinfo
   

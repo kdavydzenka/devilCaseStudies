@@ -1,8 +1,18 @@
+
 rm(list = ls())
 require(tidyverse)
 require(patchwork)
+library(ggplot2)
 
 dir.create("all_figures/scaling_and_sim/", recursive = T)
+
+MY_THEME = ggplot2::theme(
+  strip.text = element_text(face = "bold"),
+  strip.background = element_rect(fill = "gray90"),
+  legend.position = "bottom",
+  legend.title = element_text(face = "bold"),
+  panel.grid.minor = element_blank()
+)
 
 # MAIN ####
 # Use MacaqueBrain and HSC
@@ -14,27 +24,49 @@ pAB = (pA + theme(legend.direction='vertical', legend.position = "bottom", legen
   (pB + theme(legend.position = "none")) +
   plot_layout(guides = "collect")
 
-pCD = readRDS("de_analysis/img/RDS/hsc/pvalues.RDS")
-pEF = readRDS("de_analysis/img/RDS/hsc/MCCs_boxplots.RDS") + theme(legend.position = "none")
+pC = readRDS("de_analysis/nullpower/figures/RDS/main/qq_plot.rds") + 
+  MY_THEME +
+  theme(legend.position = "right")
+
+pD = readRDS("de_analysis/nullpower/figures/RDS/main/power_curve.rds") + 
+  MY_THEME +
+  theme(legend.position = "none")
+
+pCD = pC + pD + plot_layout(guides = "collect")
+
+pE = readRDS("de_analysis/nullpower/figures/RDS/main/MCC_boxplot.rds") +
+  scale_x_discrete(limits = rev) +
+  scale_y_continuous(breaks = c(0, 0.5, 1)) +
+  MY_THEME +
+  theme(legend.position = "none")
+
+# design = "
+# AAAAA
+# AAAAA
+# AAAAA
+# AAAAA
+# ##CCC
+# ##CCC
+# ##DDD
+# ##DDD
+# EEEEE
+# EEEEE
+# EEEEE
+# EEEEE"
 
 design = "
-AAAA
-AAAA
-AAAA
-AAAA
-AAAA
-##CC
-##CC
-##DD
-##DD
-EEEE
-EEEE
-EEEE
-EEEE"
-
+AAA
+AAA
+#BB
+#BB
+#BB
+DDD
+DDD
+"
+library(patchwork)
 final_plot = free(pAB) +
-  free(pCD$null_pvalue) + free(pCD$de_pvalue) +
-  free(pEF) +
+  free(pCD) +
+  free(pE) +
   plot_layout(design = design) +
   plot_annotation(tag_levels = list(c("A", "", "C", "D", "E"))) &
   theme(
@@ -45,9 +77,9 @@ final_plot = free(pAB) +
     strip.background = element_rect(fill = "gray90"),
     panel.grid.minor = element_blank()
   )
-final_plot
+
 ggsave(filename = "all_figures/scaling_and_sim/main_2_v0.pdf", plot = final_plot, dpi = 600, width = 11.7, height = 11.7, units = "in")
-rm(pA, pB, pCD, pEF, final_plot, design)
+rm(pA, pAB, pC, pD, pE, pB, pCD, final_plot, design)
 
 # EXTENDED ####
 # Use MacaqueBrain and HSC
@@ -60,38 +92,42 @@ pC = readRDS("timing_scaling/img/RDS/MacaqueBrain/large.RDS") +
         legend.spacing.x = unit(1, "pt"),
         legend.box.margin = margin(0, 0, 0, 0)) +
   guides(color = guide_legend(ncol = 2))
-pFG = readRDS("de_analysis/img/RDS/hsc/ks_test.RDS")
-pFG$cellwise = pFG$cellwise + theme(legend.direction='horizontal',
-                                    legend.position = "bottom",
-                                    legend.box = "vertical",
-                                    legend.spacing.y = unit(0, "pt"),
-                                    legend.spacing.x = unit(1, "pt"),
-                                    legend.box.margin = margin(0, 0, 0, 0)) +
-  guides(color = guide_legend(ncol = 2))
-pFG$patientwise = pFG$patientwise + theme(legend.direction='horizontal',
-                                          legend.position = "bottom",
-                                          legend.box = "vertical",
-                                          legend.spacing.y = unit(0, "pt"),
-                                          legend.spacing.x = unit(1, "pt"),
-                                          legend.box.margin = margin(0, 0, 0, 0)) +
-  guides(color = guide_legend(ncol = 2))
 
-pH = readRDS("de_analysis/img/RDS/hsc/timing.RDS") +
-  theme(legend.direction='horizontal',
-        legend.position = "bottom",
-        legend.box = "vertical",
-        legend.spacing.y = unit(0, "pt"),
-        legend.spacing.x = unit(1, "pt"),
-        legend.box.margin = margin(0, 0, 0, 0))
+pFG = readRDS("de_analysis/nullpower/figures/RDS/main/ecfd_ks_plot.rds") +
+  MY_THEME +
+  theme(legend.position = "left")
+# pFG$cellwise = pFG$cellwise + theme(legend.direction='horizontal',
+#                                     legend.position = "bottom",
+#                                     legend.box = "vertical",
+#                                     legend.spacing.y = unit(0, "pt"),
+#                                     legend.spacing.x = unit(1, "pt"),
+#                                     legend.box.margin = margin(0, 0, 0, 0)) +
+#   guides(color = guide_legend(ncol = 2))
+# pFG$patientwise = pFG$patientwise + theme(legend.direction='horizontal',
+#                                           legend.position = "bottom",
+#                                           legend.box = "vertical",
+#                                           legend.spacing.y = unit(0, "pt"),
+#                                           legend.spacing.x = unit(1, "pt"),
+#                                           legend.box.margin = margin(0, 0, 0, 0)) +
+#   guides(color = guide_legend(ncol = 2))
+
+pH = readRDS("de_analysis/nullpower/figures/RDS/main/ptiming_ratio.rds")
+# pH = readRDS("de_analysis/img/RDS/hsc/timing.RDS") +
+#   theme(legend.direction='horizontal',
+#         legend.position = "bottom",
+#         legend.box = "vertical",
+#         legend.spacing.y = unit(0, "pt"),
+#         legend.spacing.x = unit(1, "pt"),
+#         legend.box.margin = margin(0, 0, 0, 0))
 
 design = "
 AABBCC
 AABBCC
-FFGGHH
-FFGGHH"
+FFFFHH
+FFFFHH"
 
 final_plot = free(pAB$lfc) + free(pAB$theta) + free(pC) +
-  free(pFG$cellwise) + free(pFG$patientwise) + free(pH) +
+  free(pFG) + free(pH) +
   plot_layout(design = design) +
   plot_annotation(tag_levels = "A") &
   theme(
@@ -104,7 +140,7 @@ final_plot = free(pAB$lfc) + free(pAB$theta) + free(pC) +
   )
 final_plot
 ggsave(filename = "all_figures/scaling_and_sim/ext_2.pdf", plot = final_plot, dpi = 600, width = 13.7, height = 9, units = "in")
-rm(pAB, pC, pD, pFG, pH, final_plot, design)
+rm(pAB, pC, pFG, pH, final_plot, design)
 
 # SUPP SCALING ####
 ## Times and Memory ####
@@ -184,59 +220,111 @@ supp_fig = free(pAB) + free(pCD) +
   )
 ggsave(filename = paste0("all_figures/scaling_and_sim/supp_scaling_",dataset_name,".pdf"), plot = supp_fig, dpi = 600, width = 11.7, height = 11.7, units = "in")
 
-# SUPP DE ANALYSIS ####
-## All methods ####
-all_models_plots = readRDS("de_analysis/img/RDS/all_models.RDS")
-pA = all_models_plots$MCC + theme(legend.position = "bottom")
-pB = all_models_plots$timing + theme(legend.position = "bottom")
-pC = all_models_plots$failure_rate + theme(legend.position = "bottom")
-
-des = "
-AAAAA
-AAAAA
-BBBCC
-BBBCC"
-
-all_models_plot = free(pA) + free(pB) + free(pC) +
-  plot_layout(design = des) +
-  plot_annotation(tag_levels = c("A")) &
-  theme(plot.tag = element_text(face = 'bold'))
-ggsave("all_figures/scaling_and_sim/supp_sim_allmodels.pdf", all_models_plot, width = 10, height = 10, dpi = 600, units = "in")
-rm(all_models_plots, pA, pB, pC, all_models_plot, des)
+# # SUPP DE ANALYSIS ####
+# ## All methods ####
+# all_models_plots = readRDS("de_analysis/img/RDS/all_models.RDS")
+# pA = all_models_plots$MCC + theme(legend.position = "bottom")
+# pB = all_models_plots$timing + theme(legend.position = "bottom")
+# pC = all_models_plots$failure_rate + theme(legend.position = "bottom")
+# 
+# des = "
+# AAAAA
+# AAAAA
+# BBBCC
+# BBBCC"
+# 
+# all_models_plot = free(pA) + free(pB) + free(pC) +
+#   plot_layout(design = des) +
+#   plot_annotation(tag_levels = c("A")) &
+#   theme(plot.tag = element_text(face = 'bold'))
+# ggsave("all_figures/scaling_and_sim/supp_sim_allmodels.pdf", all_models_plot, width = 10, height = 10, dpi = 600, units = "in")
+# rm(all_models_plots, pA, pB, pC, all_models_plot, des)
 
 
 ## All datasets ####
+
 for (author in c("hsc", "kumar", "yazar", "bca")) {
-  pA = readRDS(file.path("de_analysis/img/RDS/", author, "pvalues.RDS"))
-  pA = (pA$null_pvalue + theme(legend.direction='vertical', legend.position = "none", legend.box = "horizontal")) +
-    (pA$de_pvalue + theme(legend.position = "none"))
-
-  pBC = readRDS(file.path("de_analysis/img/RDS/", author, "MCCs.RDS"))
-  pB = pBC$cellwise + ggtitle("Cell-wise")
-  pC = pBC$patientwise + ggtitle("Patient-wise")
-  pBC = (pB + theme(legend.direction='vertical', legend.position = "bottom", legend.box = "horizontal")) +
-    (pC + theme(legend.position = "none")) +
+  
+  qq20 = readRDS(file.path("de_analysis/nullpower/figures/RDS",author,"qq20.rds")) +
+    facet_wrap(~is.pb) + ggtitle("20 patients")
+  qq4 = readRDS(file.path("de_analysis/nullpower/figures/RDS",author,"qq4.rds")) +
+    facet_wrap(~is.pb)+ ggtitle("4 patients")
+  
+  qq20@layers[[2]]$aes_params$linewidth = .8
+  qq4@layers[[2]]$aes_params$linewidth = .8
+  
+  power_curve_20 = readRDS(file.path("de_analysis/nullpower/figures/RDS/",author,"/power_curve_20.rds")) +
+    facet_wrap(~splitval, ncol = 2) + ggtitle("20 patients")
+  power_curve_4 = readRDS(file.path("de_analysis/nullpower/figures/RDS/",author,"/power_curve_4.rds")) +
+    facet_wrap(~splitval, ncol = 2) + ggtitle("4 patients")
+  
+  power_curve_20@layers[[1]]$aes_params$linewidth = .8
+  power_curve_4@layers[[1]]$aes_params$linewidth = .8
+  
+  MMC_box = readRDS(file.path("de_analysis/nullpower/figures/RDS/",author,"/MCC_box.rds"))
+  ks_plot = readRDS(file.path("de_analysis/nullpower/figures/RDS/",author,"/ecfd_ks_plot.rds")) + theme(legend.position = "right")
+  ks_plot@layers[[1]]$aes_params$linewidth = .8
+  
+  timing_ratio = readRDS(file.path("de_analysis/nullpower/figures/RDS/",author,"/ptiming_ratio.rds"))
+  timing = readRDS(file.path("de_analysis/nullpower/figures/RDS/",author,"/ptiming.rds"))
+  
+  # pA = readRDS(file.path("de_analysis/img/RDS/", author, "pvalues.RDS"))
+  # pA = (pA$null_pvalue + theme(legend.direction='vertical', legend.position = "none", legend.box = "horizontal")) +
+  #   (pA$de_pvalue + theme(legend.position = "none"))
+  # 
+  # pBC = readRDS(file.path("de_analysis/img/RDS/", author, "MCCs.RDS"))
+  # pB = pBC$cellwise + ggtitle("Cell-wise")
+  # pC = pBC$patientwise + ggtitle("Patient-wise")
+  # pBC = (pB + theme(legend.direction='vertical', legend.position = "bottom", legend.box = "horizontal")) +
+  #   (pC + theme(legend.position = "none")) +
+  #   plot_layout(guides = "collect")
+  # 
+  # pDE = readRDS(file.path("de_analysis/img/RDS/", author, "ks_test.RDS"))
+  # pD = pDE$cellwise + ggtitle("Cell-wise")
+  # pE = pDE$patientwise + ggtitle("Patient-wise")
+  # pDE = (pD + theme(legend.direction='vertical', legend.position = "bottom", legend.box = "horizontal")) +
+  #   (pE + theme(legend.position = "none")) +
+  #   plot_layout(guides = "collect")
+  # 
+  # pF = readRDS(file.path("de_analysis/img/RDS/", author, "timing.RDS"))
+  
+  timing_ratio = timing_ratio + scale_x_discrete(limits = rev)
+  timing = timing + scale_x_discrete(limits = rev)
+  
+  qq = qq4 + qq20 +
     plot_layout(guides = "collect")
-
-  pDE = readRDS(file.path("de_analysis/img/RDS/", author, "ks_test.RDS"))
-  pD = pDE$cellwise + ggtitle("Cell-wise")
-  pE = pDE$patientwise + ggtitle("Patient-wise")
-  pDE = (pD + theme(legend.direction='vertical', legend.position = "bottom", legend.box = "horizontal")) +
-    (pE + theme(legend.position = "none")) +
+  
+  power = power_curve_4 + power_curve_20 +
     plot_layout(guides = "collect")
-
-  pF = readRDS(file.path("de_analysis/img/RDS/", author, "timing.RDS"))
+  
+  MMC_box = MMC_box + scale_x_discrete(limits = rev)
+  
+  timings = timing + timing_ratio +
+    plot_layout(guides = "collect")
 
   design = "
 AAAA
 BBBB
 CCCC
-#DD#"
-
-  final_plot = pA / pBC / pDE / pF +
+DDDD
+EEEE
+  "
+  
+  final_plot = free(qq) / free(power) / free(MMC_box) / free(ks_plot) / free(timings) +
     plot_layout(design = design) +
-    plot_annotation(tag_levels = c("A", "B", "C", "D")) &
+    plot_annotation(tag_levels = c("A", "B", "C", "D", "E")) &
     theme(plot.tag = element_text(face = 'bold'))
+  
+  # final_plot = qq / power / MMC_box / ks_plot / timings +
+  #   plot_layout(design = design, guides = "collect") +
+  #   plot_annotation(tag_levels = c("A", "B", "C", "D", "E")) &
+  #   theme(plot.tag = element_text(face = 'bold'))
 
-  ggsave(paste0("all_figures/scaling_and_sim/supp_sim_",author,".pdf"), final_plot, width = 10, height = 10, dpi = 600, units = "in")
+  # final_plot = pA / pBC / pDE / pF +
+  #   plot_layout(design = design) +
+  #   plot_annotation(tag_levels = c("A", "B", "C", "D")) &
+  #   theme(plot.tag = element_text(face = 'bold'))
+
+  ggsave(paste0("all_figures/scaling_and_sim/supp_sim_",author,".png"), final_plot, width = 8 * 1.5, height = 11 * 1.5, dpi = 600, units = "in")
+  ggsave(paste0("all_figures/scaling_and_sim/supp_sim_",author,".pdf"), final_plot, width = 8 * 1.5, height = 11 * 1.5, dpi = 600, units = "in")
 }

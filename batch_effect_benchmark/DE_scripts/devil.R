@@ -26,26 +26,39 @@ run_devil <- function(processed, cellinfo, cov = TRUE, Det = FALSE, former.meth 
   #   is_cell = is_cell
   # )
   
+  # if(Det){
+  #   if(cov){
+  #     design <- model.matrix(~Group+cdr+Batch, data = cellinfo)
+  #   }else{
+  #     design <- model.matrix(~Group+cdr, data = cellinfo)
+  #   }
+  # }else{
+  #   if(cov){
+  #     design <- model.matrix(~Group+Batch, data = cellinfo)
+  #   }else{
+  #     design <- model.matrix(~Group, data = cellinfo)
+  #   }
+  # }
+  
   if(Det){
     if(cov){
-      design <- model.matrix(~Group+cdr+Batch, data = cellinfo)
+      design<-model.matrix(~Group+cdr+Batch, cellinfo)
     }else{
-      design <- model.matrix(~Group+cdr, data = cellinfo)
+      design <- model.matrix(~Group+cdr, cellinfo)
     }
   }else{
     if(cov){
-      design <- model.matrix(~Group+Batch, data = cellinfo)
+      design<-model.matrix(~Group+Batch, cellinfo)
     }else{
-      design <- model.matrix(~Group, data = cellinfo)
+      design <- model.matrix(~Group, cellinfo)
     }
   }
-  
   
   # Fit DEVIL
   fit <- devil::fit_devil(
     count_df,
     design,
-    overdispersion = TRUE,
+    overdispersion = "old",
     size_factors = NULL,
     max_iter = 500,
     parallel.cores = 1,
@@ -61,6 +74,7 @@ run_devil <- function(processed, cellinfo, cov = TRUE, Det = FALSE, former.meth 
   # contrast[target_idx] <- 1
   
   test.res <- devil::test_de(fit, contrast, max_lfc = 20)
+  
   colnames(test.res) <- c("gene", "pval", "padj", "lfc")
   res <- dplyr::mutate(as.data.frame(test.res), cell_type = levels(cellinfo$Group)[2])
   

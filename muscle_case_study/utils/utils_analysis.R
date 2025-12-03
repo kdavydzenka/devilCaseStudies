@@ -171,22 +171,22 @@ GO_CLUSTERS <- list(
 #}
 
 
-get_simplified_GOterms = function(by=.05) {
+get_simplified_GOterms = function(GO_devil, GO_glm, GO_nebula, by=.05) {
   sdevil = lapply(seq(0, 1, by =by), function(c) {
-    gseGO_devil_s = clusterProfiler::simplify(gseGO_devil, cutoff=c)
-    dplyr::tibble(model = "devil", n_simplified = nrow(gseGO_devil_s@result), n_total = nrow(gseGO_devil@result)) %>%
+    gseGO_devil_s = clusterProfiler::simplify(GO_devil, cutoff=c)
+    dplyr::tibble(model = "devil", n_simplified = nrow(gseGO_devil_s@result), n_total = nrow(GO_devil@result)) %>%
       dplyr::mutate(f = n_simplified / n_total, c=c)
   }) %>% do.call("bind_rows", .)
 
   sglm = lapply(seq(0, 1, by =by), function(c) {
-    gseGO_glm_s = clusterProfiler::simplify(gseGO_glm, cutoff=c)
-    dplyr::tibble(model = "glmGamPoi", n_simplified = nrow(gseGO_glm_s@result), n_total = nrow(gseGO_glm@result)) %>%
+    gseGO_glm_s = clusterProfiler::simplify(GO_glm, cutoff=c)
+    dplyr::tibble(model = "glmGamPoi", n_simplified = nrow(gseGO_glm_s@result), n_total = nrow(GO_glm@result)) %>%
       dplyr::mutate(f = n_simplified / n_total, c=c)
   }) %>% do.call("bind_rows", .)
 
   snebula = lapply(seq(0, 1, by = .05), function(c) {
-    gseGO_nebula_s = clusterProfiler::simplify(gseGO_nebula, cutoff=c)
-    dplyr::tibble(model = "NEBULA", n_simplified = nrow(gseGO_nebula_s@result), n_total = nrow(gseGO_nebula@result)) %>%
+    gseGO_nebula_s = clusterProfiler::simplify(GO_nebula, cutoff=c)
+    dplyr::tibble(model = "NEBULA", n_simplified = nrow(gseGO_nebula_s@result), n_total = nrow(GO_nebula@result)) %>%
       dplyr::mutate(f = n_simplified / n_total, c=c)
   }) %>% do.call("bind_rows", .)
 
@@ -194,7 +194,7 @@ get_simplified_GOterms = function(by=.05) {
 }
 
 
-plot_dotplot_GO = function(devil_res, glm_res, nebula_res) {
+plot_dotplot_GO = function(devil_res, glm_res, nebula_res, top_K = 15) {
 
   devil_res <- devil_res %>% dplyr::mutate(method = "devil", DE_type = ifelse(enrichmentScore > 0, "Up-regulated", "Down-regulated"))
   glm_res <- glm_res %>% dplyr::mutate(method = "glmGamPoi", DE_type = ifelse(enrichmentScore > 0, "Up-regulated", "Down-regulated"))
@@ -239,9 +239,9 @@ plot_dotplot_GO = function(devil_res, glm_res, nebula_res) {
   
   # Select top 10 terms per method and DE_type based on enrichmentScore
   filtered_data <- combined_data %>%
-    group_by(method, DE_type) %>%
-    arrange(desc(enrichmentScore)) %>%
-    slice_head(n = 10) %>%
+    group_by(method) %>%
+    arrange(p.adjust) %>%
+    slice_head(n = top_K) %>%
     ungroup()
   
   filtered_data <- filtered_data %>% 
@@ -301,6 +301,105 @@ plot_dotplot_GO = function(devil_res, glm_res, nebula_res) {
   #return(gseGO@result %>% as.data.frame())
 #}
 
+runGO <- function(df,
+                  padj_col,
+                  lfc_col,
+                  method = c("GSE", "ENRICH"),
+                  pval_cut = 0.05,
+                  lfc_cut  = 0,
+                  ont = "BP") {
+  
+  method   <- match.arg(method)
+  padj_sym <- rlang::sym(padj_col)
+  lfc_sym  <- rlang::sym(lfc_col)
+  
+  # --- 1. Clean input & standardize column names ---
+  rna_deg_data <- df %>%
+    dplyr::filter(
+      !is.na(!!padj_sym),
+      !is.na(!!lfc_sym),
+      !!padj_sym > 0
+    ) %>%
+    dplyr::rename(
+      adj_pval = !!padj_sym,
+      lfc      = !!lfc_sym,
+      geneID   = name
+    )
+  
+  # handle zeros in adj_pval
+  min_p <- min(rna_deg_data$adj_pval[rna_deg_data$adj_pval != 0], na.rm = TRUE)
+  rna_deg_data$adj_pval[rna_deg_data$adj_pval == 0] <- min_p
+  
+  # --- 2. Branch by method ---
+  if (method == "GSE") {
+    # rank metric for GSEA
+    rna_deg_data <- rna_deg_data %>%
+      #dplyr::mutate(RankMetric = -log10(adj_pval) * sign(lfc)) %>%
+      dplyr::mutate(RankMetric = -log(pval) * sign(lfc)) %>%
+      dplyr::arrange(dplyr::desc(RankMetric))
+    
+    genes <- rna_deg_data$RankMetric
+    names(genes) <- rna_deg_data$geneID
+    
+    res <- clusterProfiler::gseGO(
+      geneList      = genes,
+      ont           = ont,
+      OrgDb         = org.Hs.eg.db,
+      minGSSize     = 10,
+      maxGSSize     = 350,
+      keyType       = "SYMBOL",
+      pvalueCutoff  = 0.05,
+      pAdjustMethod = "BH",
+      verbose       = TRUE,
+      eps           = 0,
+      nPermSimple   = 10000
+    )
+    
+  } else if (method == "ENRICH") {
+    # significant genes for over-representation
+    up_sig_genes <- rna_deg_data %>%
+      dplyr::filter(adj_pval < pval_cut, lfc >= lfc_cut) %>%
+      dplyr::pull(geneID)
+    
+    down_sig_genes <- rna_deg_data %>%
+      dplyr::filter(adj_pval < pval_cut, lfc <= -lfc_cut) %>%
+      dplyr::pull(geneID)
+    
+    universe_genes <- rna_deg_data$geneID
+    
+    up_res <- clusterProfiler::enrichGO(
+      gene          = up_sig_genes,
+      universe      = universe_genes,
+      OrgDb         = org.Hs.eg.db,
+      keyType       = "SYMBOL",
+      ont           = ont,
+      pAdjustMethod = "BH",
+      pvalueCutoff  = 0.05,
+      qvalueCutoff  = 0.2,
+      minGSSize     = 10,
+      maxGSSize     = 350
+    )
+    
+    down_res <- clusterProfiler::enrichGO(
+      gene          = down_sig_genes,
+      universe      = universe_genes,
+      OrgDb         = org.Hs.eg.db,
+      keyType       = "SYMBOL",
+      ont           = ont,
+      pAdjustMethod = "BH",
+      pvalueCutoff  = 0.05,
+      qvalueCutoff  = 0.2,
+      minGSSize     = 10,
+      maxGSSize     = 350
+    )
+    
+    res = list(up_res = up_res, down_res = down_res, 
+               up_res_df = up_res@result %>% dplyr::filter(p.adjust <= pval_cut) %>% dplyr::mutate(regulation = "Up-regulated"),
+               down_res_df = down_res@result %>% dplyr::filter(p.adjust <= pval_cut) %>% dplyr::mutate(regulation = "Down-regulated"))
+  }
+  
+  return(res)
+}
 
 enrichmentGO <- function(df, padj_col, lfc_col) {
   
@@ -383,3 +482,66 @@ auc <- function(x, y) {
   return(area)
 }
 
+get_tissue_specific_res = function(gse_result, method) {
+  # Extract gene sets (significant ones)
+  if (nrow(gse_result@result) == 0) return(dplyr::tibble())
+  significant_terms <- subset(gse_result@result, qvalue < 0.05)
+  if (nrow(gse_result@result) == 0) return(dplyr::tibble())
+  
+  # Get the genes for each GO term (pathway)
+  # Map ENTREZ IDs to SYMBOLs if needed
+  all_gene_sets <- lapply(significant_terms$ID, function(go_id) {
+    genes <- DOSE::geneInCategory(gse_result)[[go_id]]
+    genes
+  })
+  names(all_gene_sets) <- significant_terms$Description
+  
+  # Run TissueEnrich on each gene set
+  results <- lapply(seq_along(all_gene_sets), function(i) {
+    gene_set <- all_gene_sets[[i]]
+    gs <- GeneSet(geneIds=gene_set,organism="Homo Sapiens",geneIdType=SymbolIdentifier())
+    if (length(gene_set) >= 5) { # Minimum size
+      TissueEnrich::teEnrichment(gs)
+    } else {
+      NULL
+    }
+  })
+  names(results) <- names(all_gene_sets)
+  
+  # Extract enrichment score (p-value or fold change) for the tissue of interest
+  res_df = lapply(1:length(results), function(i) {
+    path_name = names(results)[i]
+    te_result = results[[i]]
+    if (is.null(te_result)) {
+      print(i)
+      return(NULL)
+    }
+    seEnrichmentOutput<-te_result[[1]]
+    enrichmentOutput<-setNames(data.frame(assay(seEnrichmentOutput),row.names = rowData(seEnrichmentOutput)[,1]), colData(seEnrichmentOutput)[,1])
+    enrichmentOutput$Tissue<-row.names(enrichmentOutput)
+    enrichmentOutput %>% dplyr::mutate(path_name = path_name)
+  }) %>% do.call("bind_rows", .)
+  rownames(res_df) = NULL
+  res_df %>% dplyr::mutate(method = method)
+}
+
+
+bayes_de_prob <- function(df, lfc_cut = 1.0, alpha = 0.05, k = 8) {
+  # avoid zeros in adj_pval
+  if (any(df$adj_pval == 0, na.rm = TRUE)) {
+    min_nonzero <- min(df$adj_pval[df$adj_pval > 0], na.rm = TRUE)
+    df$adj_pval[df$adj_pval == 0] <- min_nonzero
+  }
+  
+  df %>%
+    dplyr::mutate(
+      # p-value based DE "probability"
+      p_de_p = 1 / (1 + adj_pval / alpha),
+      
+      # LFC-based DE "probability": 0.5 at |lfc| = lfc_cut
+      p_de_lfc = 1 / (1 + exp(-k * (abs(lfc) - lfc_cut))),
+      
+      # combined DE probability (you can change comb rule if you like)
+      p_de = p_de_p * p_de_lfc
+    )
+}

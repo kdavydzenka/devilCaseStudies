@@ -32,12 +32,13 @@ for (n_genes in c(100, 1000, 10000)) {
     b.devil <- bench::mark(devil::fit_devil(
       c,
       d,
-      overdispersion = T,
-      size_factors = T,
+      overdispersion = "MOM",
+      size_factors = "normed_sum",
       verbose = T,
       parallel.cores = 1,
       offset = 1e-6,
-      init_overdispersion = 100,
+      init_overdispersion = NULL, 
+      init_beta_rough = TRUE,
       max_iter = 100
     ), min_iterations = MIN_ITER, memory = T)
     b.devil$result <- NULL
@@ -71,14 +72,20 @@ s <- Sys.time()
 fit.devil <- devil::fit_devil(
   as.matrix(c),
   d,
-  overdispersion = T,
-  size_factors = T,
+  overdispersion = "MLE",
+  size_factors = "normed_sum",
   verbose = T,
-  parallel.cores = 1,
-  offset = 1e-6,
-  init_overdispersion = 100,
+  parallel.cores = 1, 
+  init_beta_rough = FALSE,
+  offset = 0,
+  init_overdispersion = NULL,
   max_iter = 100
 )
+
+devil:::compute_offset_vector
+plot(fit.devil$offset_vector, fit.devil$size_factors)
+plot(exp(fit.devil$offset_vector), fit.devil$size_factors)
+
 e <- Sys.time()
 print(e-s)
 
@@ -96,7 +103,7 @@ fit.glm <- glmGamPoi::glm_gp(
   d,
   overdispersion = T,
   size_factors = "normed_sum",
-  offset = 1e-6
+  offset = 0
 )
 e <- Sys.time()
 print(e-s)
@@ -106,6 +113,11 @@ glm.final.res <- glm.res %>%
   cbind(fit.glm$Beta) %>%
   cbind(dplyr::tibble(theta = fit.glm$overdispersions))
 rm(glm.res, fit.glm)
+
+plot(devil.final.res$lfc, glm.final.res$lfc)
+plot(devil.final.res$theta, glm.final.res$theta)
+plot(devil.final.res$adj_pval, glm.final.res$adj_pval)
+plot(devil.final.res$pval, glm.final.res$pval)
 
 print("Saving results...")
 

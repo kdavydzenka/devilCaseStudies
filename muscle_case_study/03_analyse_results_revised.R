@@ -32,9 +32,7 @@ res_data <- purrr::cross_df(list(method = methods, condition = conditions)) %>%
 
 
 # nebula 
-
 nebula_names <- c("nebula_age_only", "nebula_age_type1", "nebula_age_type2", "nebula_interaction")
-
 for (nm in nebula_names) {
   res_data[[nm]] <- res_data[[nm]] %>%
     mutate(lfc = lfc / log(2)) %>%

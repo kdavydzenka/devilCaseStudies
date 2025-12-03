@@ -166,10 +166,12 @@ main_Fscore <- function(select = c("UP", "DOWN")) {
   # collect per-simulation per-method rows
   rows <- list()
   
+  sim_dir = simul_dirs[1]
   for (sim_dir in simul_dirs) {
     sim_name <- fs::path_file(sim_dir)
     GT <- load_ground_truth(sim_dir)  # Up/Down/All
     
+    method = "DEVIL"
     for (method in names(METHOD_SPECS)) {
       res <- load_method_res(sim_name, method)
       if (is.null(res)) next
