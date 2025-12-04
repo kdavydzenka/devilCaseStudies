@@ -41,15 +41,16 @@ s <- Sys.time()
 fit.devil <- devil::fit_devil(
   c,
   d,
-  overdispersion = T,
-  size_factors = T,
+  overdispersion = "MOM",
+  size_factors = NULL,
   verbose = T,
   parallel.cores = 1,
   offset = 1e-6,
+  init_overdispersion = NULL, 
+  init_beta_rough = TRUE,
+  max_iter = 500,
   CUDA = TRUE,
-  batch_size = min(1024L, n_genes),
-  max_iter = 100,
-  init_overdispersion = NULL
+  batch_size = min(1024L, n_genes)
 )
 e <- Sys.time()
 print(e-s)
@@ -81,15 +82,16 @@ for (n_genes in c(100, 1000, 5000)) {
     b.devil <- bench::mark(devil::fit_devil(
       c,
       d,
-      overdispersion = T,
-      size_factors = T,
+      overdispersion = "MOM",
+      size_factors = NULL,
       verbose = T,
       parallel.cores = 1,
       offset = 1e-6,
+      init_overdispersion = NULL, 
+      init_beta_rough = TRUE,
+      max_iter = 500,
       CUDA = TRUE,
-      batch_size = min(1024L, n_genes),
-      max_iter = 100,
-      init_overdispersion = NULL
+      batch_size = min(1024L, n_genes)
     ), min_iterations = MIN_ITER, memory = T)
     b.devil$result <- NULL
 

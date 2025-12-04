@@ -33,13 +33,13 @@ for (n_genes in c(100, 1000, 10000)) {
       c,
       d,
       overdispersion = "MOM",
-      size_factors = "normed_sum",
+      size_factors = NULL,
       verbose = T,
       parallel.cores = 1,
       offset = 1e-6,
       init_overdispersion = NULL, 
       init_beta_rough = TRUE,
-      max_iter = 100
+      max_iter = 500
     ), min_iterations = MIN_ITER, memory = T)
     b.devil$result <- NULL
 
@@ -49,7 +49,7 @@ for (n_genes in c(100, 1000, 10000)) {
     print("inference starting glm ...")
 
     b.glmGamPoi <- bench::mark(
-      glmGamPoi::glm_gp(c, d, size_factors = 'normed_sum', overdispersion = T), min_iterations = MIN_ITER, memory = T
+      glmGamPoi::glm_gp(c, d, overdispersion = T, size_factors = FALSE, offset = 1e-6), min_iterations = MIN_ITER, memory = T
     )
     b.glmGamPoi$result <- NULL
 
@@ -72,20 +72,15 @@ s <- Sys.time()
 fit.devil <- devil::fit_devil(
   as.matrix(c),
   d,
-  overdispersion = "MLE",
-  size_factors = "normed_sum",
+  overdispersion = "MOM",
+  size_factors = NULL,
   verbose = T,
-  parallel.cores = 1, 
-  init_beta_rough = FALSE,
-  offset = 0,
-  init_overdispersion = NULL,
-  max_iter = 100
+  parallel.cores = 1,
+  offset = 1e-6,
+  init_overdispersion = NULL, 
+  init_beta_rough = TRUE,
+  max_iter = 500
 )
-
-devil:::compute_offset_vector
-plot(fit.devil$offset_vector, fit.devil$size_factors)
-plot(exp(fit.devil$offset_vector), fit.devil$size_factors)
-
 e <- Sys.time()
 print(e-s)
 
@@ -101,9 +96,9 @@ s <- Sys.time()
 fit.glm <- glmGamPoi::glm_gp(
   as.matrix(c),
   d,
-  overdispersion = T,
-  size_factors = "normed_sum",
-  offset = 0
+  overdispersion = T, 
+  size_factors = FALSE, 
+  offset = 1e-6
 )
 e <- Sys.time()
 print(e-s)
@@ -113,11 +108,6 @@ glm.final.res <- glm.res %>%
   cbind(fit.glm$Beta) %>%
   cbind(dplyr::tibble(theta = fit.glm$overdispersions))
 rm(glm.res, fit.glm)
-
-plot(devil.final.res$lfc, glm.final.res$lfc)
-plot(devil.final.res$theta, glm.final.res$theta)
-plot(devil.final.res$adj_pval, glm.final.res$adj_pval)
-plot(devil.final.res$pval, glm.final.res$pval)
 
 print("Saving results...")
 

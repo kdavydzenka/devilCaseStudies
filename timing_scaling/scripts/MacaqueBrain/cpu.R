@@ -43,13 +43,14 @@ s <- Sys.time()
 fit.devil <- devil::fit_devil(
   c,
   d,
-  overdispersion = T,
-  size_factors = T,
+  overdispersion = "MOM",
+  size_factors = NULL,
   verbose = T,
   parallel.cores = 1,
   offset = 1e-6,
-  init_overdispersion = 100,
-  max_iter = 100
+  init_overdispersion = NULL, 
+  init_beta_rough = TRUE,
+  max_iter = 500
 )
 e <- Sys.time()
 print(e-s)
@@ -81,13 +82,14 @@ for (n_genes in c(100, 1000, 5000)) {
     b.devil <- bench::mark(devil::fit_devil(
       c,
       d,
-      overdispersion = T,
-      size_factors = T,
+      overdispersion = "MOM",
+      size_factors = NULL,
       verbose = T,
       parallel.cores = 1,
       offset = 1e-6,
-      init_overdispersion = 100,
-      max_iter = 100
+      init_overdispersion = NULL, 
+      init_beta_rough = TRUE,
+      max_iter = 500
     ), min_iterations = MIN_ITER, memory = T)
     b.devil$result <- NULL
 
@@ -139,8 +141,8 @@ s <- Sys.time()
 fit.glm <- glmGamPoi::glm_gp(
   c,
   d,
-  overdispersion = T,
-  size_factors = "normed_sum",
+  overdispersion = T, 
+  size_factors = FALSE, 
   offset = 1e-6
 )
 e <- Sys.time()
@@ -170,7 +172,7 @@ for (n_genes in c(100, 1000, 5000)) {
     print("inference starting glm ...")
 
     b.glmGamPoi <- bench::mark(
-      glmGamPoi::glm_gp(c, d, size_factors = 'normed_sum', overdispersion = T), min_iterations = MIN_ITER, memory = T
+      glmGamPoi::glm_gp(c, d, overdispersion = T, size_factors = FALSE, offset = 1e-6), min_iterations = MIN_ITER, memory = T
     )
     b.glmGamPoi$result <- NULL
 
