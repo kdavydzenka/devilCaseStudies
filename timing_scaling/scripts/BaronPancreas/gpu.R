@@ -79,7 +79,7 @@ for (n_genes in c(100, 1000, 10000)) {
       init_beta_rough = TRUE,
       max_iter = 500,
       CUDA = TRUE,
-      batch_size = min(1024L, n_genes)
+      batch_size = min(100, n_genes)
     ), min_iterations = MIN_ITER, memory = T)
     b.devil$result <- NULL
 
