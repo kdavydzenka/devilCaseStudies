@@ -21,9 +21,9 @@ library(dplyr)
 #   "devil..sf.mixed." = "DevilSF (mixed)"
 # )
 
-DEVIL_NAME_MAPPING = c("devil" = "devil (Poisson)", 
-                       "devil (new overdisp)" = "devil (I-NB)", 
-                       "devil (old overdisp)" = "devil (MLE-NB)", 
+DEVIL_NAME_MAPPING = c("devil" = "devil (Poisson)",
+                       "devil (new overdisp)" = "devil (I-NB)",
+                       "devil (old overdisp)" = "devil (MLE-NB)",
                        "devil (MOM overdisp)" = "devil (MOM-NB)")
 
 MY_PALETTE = c(
@@ -39,7 +39,7 @@ MY_PALETTE = c(
   "Devil (mixed)" = "#099668",
   "Devil" = "#099668",
   "devil" = "#099668",
-  "devil (new)" = "#099668", 
+  "devil (new)" = "#099668",
   "devil (overdisp)" = "darkslategray"
 )
 
@@ -92,8 +92,8 @@ MY_PALETTE = c(
 
 MY_PALETTE %>% names()
 
-METHOD_LEVELS = c("Devil (base)", "Devil (mixed)", "Devil", "devil (new)", "devil", "devil (overdisp)", "NEBULA", "Nebula", "glmGamPoi (cell)", "glmGamPoi", 
-                  "MAST (cell)", "MAST", "Seurat (cell)", "Seurat", "Seurat (Wilcox)", "limmaDupCorr (cell)", "limmaDupCorr", 
+METHOD_LEVELS = c("Devil (base)", "Devil (mixed)", "Devil", "devil (new)", "devil", "devil (overdisp)", "NEBULA", "Nebula", "glmGamPoi (cell)", "glmGamPoi",
+                  "MAST (cell)", "MAST", "Seurat (cell)", "Seurat", "Seurat (Wilcox)", "limmaDupCorr (cell)", "limmaDupCorr",
                   "limma", "limma (Pb)", "edgeR", "edgeR (Pb)")
 
 METHOD_LEVELS = names(MY_PALETTE)
@@ -113,7 +113,7 @@ method_patientwise_supp = method_cellwise_supp = c("edgeR (Pb)", "MAST (cell)", 
 
 method_patientwise_main = method_cellwise_main = c("edgeR (Pb)", "MAST (cell)", "limma (Pb)",
                                                    "glmGamPoi (cell)", "NEBULA", "devil (MOM-NB)")
-# 
+#
 # method_patientwise_supp = c("edgeR (Pb)", "MAST (cell)", "Seurat (cell)", "limma (Pb)",
 #                             "glmGamPoi (cell)", "NEBULA", "devil (Poisson)", "limmaDupCorr (cell)", "devil (MLE-NB)")
 
@@ -129,20 +129,20 @@ plot_timing = function(a, methods, ratio = NULL) {
   if (!is.null(a)) {
     res = res %>% dplyr::filter(author == a)
   }
-  
+
   df = res %>%
     #dplyr::filter(is.pb == FALSE, name %in% methods) %>%
-    dplyr::filter(name %in% methods) %>% 
+    dplyr::filter(name %in% methods) %>%
     # dplyr::mutate(name = if_else(grepl("devil", name), "devil", name)) %>%
     dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
     dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name))
-  
+
   if (!is.null(ratio)) {
-    df = df %>% 
-      dplyr::group_by(idx) %>% 
+    df = df %>%
+      dplyr::group_by(idx) %>%
       dplyr::mutate(Time = Time[name == ratio] / Time)
   }
-  
+
   p = df %>%
     dplyr::mutate(name = factor(name, levels = METHOD_LEVELS)) %>%
     dplyr::group_by(name, ct.index, is.pb, author, patients) %>%
@@ -154,7 +154,7 @@ plot_timing = function(a, methods, ratio = NULL) {
     labs(x = "", col = "") +
     # scale_y_continuous(transform = "log10") +
     scale_color_manual(values = MY_PALETTE)
-  
+
   if (!is.null(ratio)) {
     p = p + labs(y = paste0("Speedup (vs. ", ratio, ")")) +
       geom_hline(yintercept = 1, linetype = "dashed") +
@@ -172,22 +172,22 @@ get_idx_result = function(author, idx) {
 }
 
 get_result = function(author, is.pb, n_patients = 4, ngenes = 50, cell_index = 1, i = 2, stop_on_error = T) {
-  
+
   param_grid = readRDS(paste0("data/",author,"_param_grid.rds"))
-  this = param_grid %>% 
-    dplyr::mutate(idx = row_number()) %>% 
-    dplyr::mutate(ng = as.integer(MAX_GENE * prob_de)) %>% 
-    dplyr::rename(is_pb = is.pb) %>% 
+  this = param_grid %>%
+    dplyr::mutate(idx = row_number()) %>%
+    dplyr::mutate(ng = as.integer(MAX_GENE * prob_de)) %>%
+    dplyr::rename(is_pb = is.pb) %>%
     dplyr::filter(n.sample == n_patients, ng == ngenes, int.ct == cell_index, iter == i, is_pb == is.pb)
-  
+
   if (nrow(this) != 1) {
     if (stop_on_error) {
-      stop("found either zero or too many (>2) paths")  
+      stop("found either zero or too many (>2) paths")
     } else {
       return(dplyr::tibble())
     }
   }
-  
+
   idx = this$idx
   get_idx_result(author, idx) %>% cbind(this)
 }
@@ -198,12 +198,12 @@ get_all_results = function(author) {
   df = lapply(param_grid$idx, function(i) {
     get_idx_result(author, i) %>% dplyr::mutate(idx = i)
   }) %>% do.call("bind_rows", .)
-  
+
   for (i in 1:length(names(DEVIL_NAME_MAPPING))) {
     mask = df$name == names(DEVIL_NAME_MAPPING)[i]
     df$name[mask] = DEVIL_NAME_MAPPING[i]
   }
-  
+
   dplyr::left_join(df, param_grid, by = "idx")
 }
 
@@ -212,21 +212,21 @@ plot_MCCs_boxplots = function(a, cellwise_methods, patientwise_methods) {
   if (!is.null(a)) {
     res = res %>% dplyr::filter(author == a)
   }
-  
+
   df_cellwise = res %>%
     #na.omit() %>%
     dplyr::filter(is.pb == FALSE, name %in% cellwise_methods) %>%
     # dplyr::mutate(name = if_else(grepl("devil", name), "devil", name)) %>%
     dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
     dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name))
-  
+
   df_patientwise = res %>%
     #na.omit() %>%
     dplyr::filter(is.pb == TRUE, name %in% patientwise_methods) %>%
     # dplyr::mutate(name = if_else(grepl("devil", name), "devil", name)) %>%
     dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
     dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name))
-  
+
   df_all = dplyr::bind_rows(df_patientwise, df_cellwise)
   df_all %>%
     dplyr::mutate(name = factor(name, levels = METHOD_LEVELS)) %>%
@@ -247,21 +247,21 @@ plot_FDRs_boxplots = function(a, cellwise_methods, patientwise_methods) {
   if (!is.null(a)) {
     res = res %>% dplyr::filter(author == a)
   }
-  
+
   df_cellwise = res %>%
     #na.omit() %>%
     dplyr::filter(is.pb == FALSE, name %in% cellwise_methods) %>%
     # dplyr::mutate(name = if_else(grepl("devil", name), "devil", name)) %>%
     dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
     dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name))
-  
+
   df_patientwise = res %>%
     #na.omit() %>%
     dplyr::filter(is.pb == TRUE, name %in% patientwise_methods) %>%
     # dplyr::mutate(name = if_else(grepl("devil", name), "devil", name)) %>%
     dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
     dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name))
-  
+
   df_all = dplyr::bind_rows(df_patientwise, df_cellwise)
   df_all %>%
     dplyr::mutate(name = factor(name, levels = METHOD_LEVELS)) %>%
@@ -277,32 +277,32 @@ plot_FDRs_boxplots = function(a, cellwise_methods, patientwise_methods) {
     theme(legend.position = "none")
 }
 
-plot_qq_null_pvals = function(author, 
+plot_qq_null_pvals = function(author,
                               cellwise_methods, patientwise_methods, n.points,
                               n.patients = NULL, cell.index = NULL) {
-  
+
   df = get_all_results(author)
-  
+
   if (!is.null(n.patients)) df = df %>% dplyr::filter(n.sample == n.patients)
   if (!is.null(cell.index)) df = df %>% dplyr::filter(int.ct == cell.index)
-  
+
   df = dplyr::bind_rows(
     df %>% dplyr::filter(is.pb, name %in% patientwise_methods),
     df %>% dplyr::filter(!is.pb, name %in% cellwise_methods)
   )
-  
-  df = df %>% 
+
+  df = df %>%
     # dplyr::mutate(name = if_else(grepl("devil", name), "devil", name)) %>%
     dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
-    dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name)) %>% 
+    dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name)) %>%
     dplyr::filter(!is_de)
-  
+
   if (!is.null(n.points)) {
-    df = df %>% 
-      group_by(name) %>% 
+    df = df %>%
+      group_by(name) %>%
       dplyr::sample_n(n.points)
   }
-  
+
   p <- df %>%
     group_by(name, idx) %>%
     arrange(p_val, .by_group = TRUE) %>%
@@ -330,26 +330,26 @@ plot_qq_null_pvals = function(author,
   p
 }
 
-plot_power_curve = function(author, 
+plot_power_curve = function(author,
                             methods, is.pwise = TRUE,
                             n.patients = NULL, cell.index = NULL) {
-  
+
   df = get_all_results(author)
   if (!is.null(n.patients)) df = df %>% dplyr::filter(n.sample == n.patients)
   if (!is.null(cell.index)) df = df %>% dplyr::filter(int.ct == cell.index)
-  
+
   df = df %>% na.omit() %>% dplyr::distinct()
-  df = df %>% dplyr::group_by(name, idx) %>% 
+  df = df %>% dplyr::group_by(name, idx) %>%
     dplyr::mutate(adj_pval = p.adjust(p_val, "BH"))
-  
+
   df = df %>% dplyr::filter(name %in% methods)
   df = df %>% dplyr::filter(is.pb == is.pwise)
-  
-  df = df %>% 
+
+  df = df %>%
     # dplyr::mutate(name = if_else(grepl("devil", name), "devil", name)) %>%
     dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
     dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name))
-  
+
   # TPR vs FDR curve
   # Prep cobra object
   pval = df %>%
@@ -359,24 +359,24 @@ plot_power_curve = function(author,
     dplyr::select(!gene) %>%
     as.data.frame()
   rownames(pval) = paste0("Gene", 1:nrow(pval))
-  
+
   padj = df %>%
-    #dplyr::mutate(adj_pval = ifelse(abs(lfc) < .5, 1, adj_pval)) %>% 
+    #dplyr::mutate(adj_pval = ifelse(abs(lfc) < .5, 1, adj_pval)) %>%
     dplyr::select(gene, name, adj_pval, idx) %>%
     tidyr::pivot_wider(values_from = adj_pval, names_from = name) %>%
     dplyr::arrange(gene) %>%
     dplyr::select(!gene) %>%
     as.data.frame()
   rownames(pval) = paste0("Gene", 1:nrow(pval))
-  
+
   truth = df %>%
-    dplyr::ungroup() %>% 
+    dplyr::ungroup() %>%
     dplyr::select(gene, is_de, idx) %>%
     dplyr::distinct() %>%
     dplyr::arrange(gene) %>%
     dplyr::select(!gene) %>%
     as.data.frame()
-  
+
   rownames(pval) = paste0("Gene", 1:nrow(pval))
   rownames(padj) = paste0("Gene", 1:nrow(pval))
   rownames(truth) = paste0("Gene", 1:nrow(pval))
@@ -384,7 +384,7 @@ plot_power_curve = function(author,
   pval = pval %>% dplyr::select(!idx)
   truth = truth %>% dplyr::select(!idx)
   padj = padj %>% dplyr::select(!idx)
-  
+
   library(iCOBRA)
   cobradata = iCOBRA::COBRAData(pval, truth = truth, padj = padj)
   cobraperf <- calculate_performance(cobradata, binary_truth = "is_de")
@@ -395,30 +395,30 @@ plot_power_curve = function(author,
     theme_bw()
 }
 
-plot_power_curve_faceted = function(author, 
+plot_power_curve_faceted = function(author,
                                     cellwise_methods, patientwise_methods,
-                                    n.points, 
+                                    n.points,
                                     n.patients = NULL, cell.index = NULL) {
-  
+
   df = get_all_results(author)
   df = df %>% na.omit()
   if (!is.null(n.patients)) df = df %>% dplyr::filter(n.sample == n.patients)
   if (!is.null(cell.index)) df = df %>% dplyr::filter(int.ct == cell.index)
-  
+
   df = df %>% na.omit() %>% dplyr::distinct()
-  df = df %>% dplyr::group_by(name, idx) %>% 
+  df = df %>% dplyr::group_by(name, idx) %>%
     dplyr::mutate(adj_pval = p.adjust(p_val, "BH"))
-  
+
   df = dplyr::bind_rows(
     df %>% dplyr::filter(is.pb, name %in% patientwise_methods),
     df %>% dplyr::filter(!is.pb, name %in% cellwise_methods)
   )
-  
-  df = df %>% 
+
+  df = df %>%
     # dplyr::mutate(name = if_else(grepl("devil", name), "devil", name)) %>%
     dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
     dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name))
-  
+
   # TPR vs FDR curve
   # Prep cobra object
   pval = df %>%
@@ -428,25 +428,25 @@ plot_power_curve_faceted = function(author,
     dplyr::select(!gene) %>%
     as.data.frame()
   rownames(pval) = paste0("Gene", 1:nrow(pval))
-  
+
   padj = df %>%
-    #dplyr::mutate(adj_pval = ifelse(abs(lfc) < .5, 1, adj_pval)) %>% 
+    #dplyr::mutate(adj_pval = ifelse(abs(lfc) < .5, 1, adj_pval)) %>%
     dplyr::select(gene, name, adj_pval, idx) %>%
     tidyr::pivot_wider(values_from = adj_pval, names_from = name) %>%
     dplyr::arrange(gene) %>%
     dplyr::select(!gene) %>%
     as.data.frame()
   rownames(pval) = paste0("Gene", 1:nrow(pval))
-  
+
   truth = df %>%
-    dplyr::ungroup() %>% 
+    dplyr::ungroup() %>%
     dplyr::select(gene, is_de, idx, is.pb) %>%
-    dplyr::mutate(is.pb = ifelse(is.pb, "Patient-wise", "Cell-wise")) %>% 
+    dplyr::mutate(is.pb = ifelse(is.pb, "Patient-wise", "Cell-wise")) %>%
     dplyr::distinct() %>%
     dplyr::arrange(gene) %>%
     dplyr::select(!gene) %>%
     as.data.frame()
-  
+
   rownames(pval) = paste0("Gene", 1:nrow(pval))
   rownames(padj) = paste0("Gene", 1:nrow(pval))
   rownames(truth) = paste0("Gene", 1:nrow(pval))
@@ -454,23 +454,23 @@ plot_power_curve_faceted = function(author,
   pval = pval %>% dplyr::select(!idx)
   truth = truth %>% dplyr::select(!idx)
   padj = padj %>% dplyr::select(!idx)
-  
+
   library(iCOBRA)
-  
+
   if (!is.null(n.points)) {
     idxs = sample(1:nrow(truth), size = n.points)
     pval = pval[idxs,]
     padj = padj[idxs,]
-    truth = truth[idxs,]  
+    truth = truth[idxs,]
   }
 
   cobradata = iCOBRA::COBRAData(pval, truth = truth, padj = padj)
   cobraperf <- calculate_performance(cobradata, binary_truth = "is_de", splv = "is.pb")
   cobraplot <- prepare_data_for_plot(cobraperf, colorscheme = "Dark2", facetted = TRUE)
-  cobraplot@fdrtprcurve = cobraplot@fdrtprcurve %>% 
-    dplyr::filter(splitval != "overall") %>% 
+  cobraplot@fdrtprcurve = cobraplot@fdrtprcurve %>%
+    dplyr::filter(splitval != "overall") %>%
     dplyr::mutate(splitval = ifelse(grepl("Cell-wise", splitval), "Cell-wise", "Patient-wise"))
-  
+
   plot_fdrtprcurve(cobraplot, plottype = "curve") +
     scale_color_manual(values = MY_PALETTE) +
     scale_fill_manual(values = MY_PALETTE) +
@@ -478,22 +478,22 @@ plot_power_curve_faceted = function(author,
     labs(color = "Model")
 }
 
-plot_ks <- function(author, 
+plot_ks <- function(author,
                     cellwise_methods, patientwise_methods, base_method,
                     n.patients = NULL, cell.index = NULL) {
-  
-  res = readRDS("final_res/results.rds")  
+
+  res = readRDS("final_res/results.rds")
   if (!is.null(n.patients)) res <- dplyr::filter(res, patients == n.patients)
   if (!is.null(cell.index)) res <- dplyr::filter(res, ct.index == cell.index)
-  
+
   a <- author
-  
+
   # CELL-WISE (is.pb == FALSE)
   r_false <- res %>%
     dplyr::filter(author == a) %>%
     dplyr::filter(is.pb == FALSE, name %in% cellwise_methods)
-  
-  
+
+
   cellwise_methods = cellwise_methods[cellwise_methods %in% unique(r_false$name)]
   ks_false_pvals <- lapply(cellwise_methods[cellwise_methods != base_method], function(m) {
     pval <- stats::ks.test(
@@ -512,7 +512,7 @@ plot_ks <- function(author,
         TRUE ~ m
       )
     )
-  
+
   # Canonicalize names for plotting (as in your code)
   r_false_plot <- r_false %>%
     dplyr::mutate(
@@ -524,7 +524,7 @@ plot_ks <- function(author,
       ),
       facet = "Cell-wise"
     )
-  
+
   # Anchor points and annotations for Cell-wise
   curve_false <- r_false %>%
     dplyr::mutate(
@@ -547,13 +547,13 @@ plot_ks <- function(author,
       label = paste0("p ", pval),
       facet = "Cell-wise"
     )
-  
-  
+
+
   # PATIENT-WISE (is.pb == TRUE)
   r_true <- res %>%
     dplyr::filter(author == a) %>%
     dplyr::filter(is.pb == TRUE, name %in% patientwise_methods)
-  
+
   # KS p-values vs "devil (mixed)" EXACTLY like before
   # ks_true_pvals <- lapply(patientwise_methods[patientwise_methods != "devil (mixed)"], function(m) {
   patientwise_methods = patientwise_methods[patientwise_methods %in% unique(r_true$name)]
@@ -575,7 +575,7 @@ plot_ks <- function(author,
         TRUE ~ m
       )
     )
-  
+
   # Canonicalize names for plotting (as in your code)
   r_true_plot <- r_true %>%
     dplyr::mutate(
@@ -587,7 +587,7 @@ plot_ks <- function(author,
       ),
       facet = "Patient-wise"
     )
-  
+
   # Anchor points and annotations for Patient-wise
   curve_true <- r_true %>%
     dplyr::mutate(
@@ -610,10 +610,10 @@ plot_ks <- function(author,
       label = paste0("p ", pval),
       facet = "Patient-wise"
     )
-  
+
   plot_df <- dplyr::bind_rows(r_false_plot, r_true_plot)
   ann_df  <- dplyr::bind_rows(curve_false, curve_true)
-  
+
   p <- ggplot(plot_df, aes(x = MCC, color = name)) +
     stat_ecdf(geom = "line", linewidth = 1) +
     facet_wrap(~ facet, ncol = 2) +
@@ -621,9 +621,9 @@ plot_ks <- function(author,
     labs(x = "MCC", y = "Empirical CDF") +
     theme_bw() +
     theme(legend.position = "left")
-  
+
   if (nrow(ann_df) > 0) {
-    
+
     p <- p + ggrepel::geom_label_repel(
       data = ann_df,
       aes(x = x, y = y, label = label, color = name),
@@ -638,7 +638,7 @@ plot_ks <- function(author,
       show.legend = FALSE
     )
   }
-  
+
   p
 }
 
@@ -675,28 +675,28 @@ rename_single_facet <- function(p, new_label) {
 set.seed(12345)
 
 qq_plot_hsc = plot_qq_null_pvals(author = "hsc", n.points = 10000,
-                                 cellwise_methods = method_cellwise_main, 
-                                 patientwise_methods = method_patientwise_main, 
-                                 n.patients = 20, 
+                                 cellwise_methods = method_cellwise_main,
+                                 patientwise_methods = method_patientwise_main,
+                                 n.patients = 20,
                                  cell.index = NULL)
 
 power_curve = plot_power_curve_faceted(author = "hsc",
                                        cellwise_methods = method_cellwise_main,
-                                       patientwise_methods = method_patientwise_main, 
+                                       patientwise_methods = method_patientwise_main,
                                        n.points = 10000,
-                                       n.patients = 20, 
+                                       n.patients = 20,
                                        cell.index = NULL)
 
 MCC_boxplot = plot_MCCs_boxplots("hsc", method_cellwise_main, method_patientwise_main)
 FDR_boxplot = plot_FDRs_boxplots("hsc", method_cellwise_main, method_patientwise_main) +
   geom_hline(yintercept = .05, linetype = "dashed")
 
-ecfd_ks_plot = plot_ks(author = "hsc", 
-                       cellwise_methods = method_cellwise_main, 
-                       patientwise_methods = method_patientwise_main, 
+ecfd_ks_plot = plot_ks(author = "hsc",
+                       cellwise_methods = method_cellwise_main,
+                       patientwise_methods = method_patientwise_main,
                        base_method = "devil (MOM-NB)")
 
-ptiming_ratio = plot_timing("hsc", methods = c("NEBULA", "glmGamPoi (cell)", "devil (MOM-NB)", "devil (MLE-NB)"), ratio = "NEBULA")
+ptiming_ratio = plot_timing("hsc", methods = c("NEBULA", "glmGamPoi (cell)", "devil (MOM-NB)"), ratio = "NEBULA")
 
 dir.create("figures/RDS/main", recursive = T)
 saveRDS(qq_plot_hsc, "figures/RDS/main/qq_plot.rds")
@@ -709,43 +709,43 @@ saveRDS(ptiming_ratio, "figures/RDS/main/ptiming_ratio.rds")
 a = "yazar"
 for (a in c("hsc", "bca", "yazar", "kumar")) {
   set.seed(12345)
-  
+
   MCC_box = plot_MCCs_boxplots(a, method_cellwise_supp, method_patientwise_supp)
   FDR_box = plot_FDRs_boxplots(a, method_cellwise_supp, method_patientwise_supp) +
     geom_hline(yintercept = .05, linetype = "dashed")
-  
-  qq20 = plot_qq_null_pvals(a, method_cellwise_supp, method_patientwise_supp, 
+
+  qq20 = plot_qq_null_pvals(a, method_cellwise_supp, method_patientwise_supp,
                             n.points = 10000, n.patients = 20, cell.index = NULL)
-  qq4 = plot_qq_null_pvals(a, method_cellwise_supp, method_patientwise_supp, 
+  qq4 = plot_qq_null_pvals(a, method_cellwise_supp, method_patientwise_supp,
                            n.points = 10000, n.patients = 4, cell.index = NULL)
-  
+
   power_curve_4 = plot_power_curve_faceted(author = a,
-                                           cellwise_methods = method_cellwise_supp, 
-                                           patientwise_methods = method_patientwise_supp, 
+                                           cellwise_methods = method_cellwise_supp,
+                                           patientwise_methods = method_patientwise_supp,
                                            n.patients = 4, n.points = 10000,
                                            cell.index = NULL)
-  
+
   power_curve_20 = plot_power_curve_faceted(author = a,
-                                            cellwise_methods = method_cellwise_supp, 
-                                            patientwise_methods = method_patientwise_supp, 
-                                            n.patients = 20, n.points = 10000, 
+                                            cellwise_methods = method_cellwise_supp,
+                                            patientwise_methods = method_patientwise_supp,
+                                            n.patients = 20, n.points = 10000,
                                             cell.index = NULL)
-  
-  ecfd_ks_plot = plot_ks(author = a, 
-                         cellwise_methods = method_cellwise_supp, 
-                         patientwise_methods = method_patientwise_supp, 
+
+  ecfd_ks_plot = plot_ks(author = a,
+                         cellwise_methods = method_cellwise_supp,
+                         patientwise_methods = method_patientwise_supp,
                          base_method = "devil (MOM-NB)")
-  
+
   ptiming = plot_timing(a, method_cellwise_supp, ratio = NULL) +
     scale_y_continuous(transform = "log10")
-  ptiming_ratio = plot_timing(a, method_cellwise_supp, ratio = "devil (MOM-NB)")  
-  
+  ptiming_ratio = plot_timing(a, method_cellwise_supp, ratio = "devil (MOM-NB)")
+
   dir.create(paste0("figures/RDS/",a), recursive = T)
   saveRDS(MCC_box, paste0("figures/RDS/",a,"/MCC_box.rds"))
-  
+
   saveRDS(qq20, paste0("figures/RDS/",a,"/qq20.rds"))
   saveRDS(qq4, paste0("figures/RDS/",a,"/qq4.rds"))
-  
+
   saveRDS(power_curve_4, paste0("figures/RDS/",a,"/power_curve_4.rds"))
   saveRDS(power_curve_20, paste0("figures/RDS/",a,"/power_curve_20.rds"))
   saveRDS(ecfd_ks_plot, paste0("figures/RDS/",a,"/ecfd_ks_plot.rds"))

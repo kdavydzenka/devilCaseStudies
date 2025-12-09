@@ -2,6 +2,7 @@
 rm(list=ls())
 library(tidyverse)
 library(ggsci)
+source("../figure_theme.R")
 
 format_human <- function(x) {
   ifelse(abs(x) >= 1e9,  paste0(round(x / 1e9, 1), "B"),
@@ -43,8 +44,9 @@ plot_memory_usage = ggplot(df_summary,
     y = "Used GPU memory (GB)"
   ) +
   theme_bw() +
-  theme(legend.position = "none") +
-  scale_fill_gradient(low = "forestgreen", high = "firebrick")
+  scale_fill_gradient(low = "forestgreen", high = "firebrick") +
+  MY_THEME +
+  theme(legend.position = "none")
 
 ggsave(plot = plot_memory_usage, filename = "figures/memory_usage.pdf", width = 6, height = 6)
 saveRDS(plot_memory_usage, "figures/memory_usage.RDS")
@@ -65,8 +67,8 @@ plot_strong_scaling = ggplot(df,
     y = "Speedup", colour = "Batch size"
   ) +
   theme_bw() +
-  ggsci::scale_color_bmj()
-
+  ggsci::scale_color_bmj() +
+  MY_THEME
 
 ggsave(plot = plot_strong_scaling, filename = "figures/strong_scaling.pdf", width = 6, height = 6)
 saveRDS(plot_strong_scaling, "figures/strong_scaling.RDS")
@@ -74,7 +76,7 @@ saveRDS(plot_strong_scaling, "figures/strong_scaling.RDS")
 # Both
 
 pboth = plot_strong_scaling + plot_memory_usage + patchwork::plot_layout(design = "A\nB") +
-  patchwork::plot_annotation(tag_levels = c("A"))
+  patchwork::plot_annotation(tag_levels = c("A")) & theme(plot.tag = element_text(face = "bold"))
 
 
 ggsave(plot = pboth, filename = "figures/gpu_memory_and_strongscaling.pdf", width = 6, height = 10)
