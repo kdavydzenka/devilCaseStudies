@@ -68,8 +68,13 @@ my_large_palette <- c(
 )
 
 seu$cell_type = seu$x
+
+f = .2
+idxs = sample(1:ncol(seu), as.integer(f * ncol(seu)))
+seu_sub = seu[,idxs]
+
 umap_plot = DimPlot(
-  seu,
+  seu_sub,
   reduction = "umap",
   group.by  = "cell_type",
   pt.size   = 0.5
@@ -78,5 +83,7 @@ umap_plot = DimPlot(
   ggtitle("") +
   labs(x = "UMAP 1", y = "UMAP 2")
 umap_plot
+
+umap_plot = ggplotify::as.ggplot(umap_plot)
 
 saveRDS(umap_plot, "img/umap_plot.RDS")

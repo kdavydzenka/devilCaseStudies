@@ -99,7 +99,7 @@ evaluate_markers <- function(df, ref, top_n = 50) {
     fisher_p <- fisher.test(tbl, alternative="greater")$p.value
     
     # 4. AUC: do DE rank vs marker binary label
-    de_ct$score <- -log10(de_ct$padj + 1e-10)
+    # de_ct$score <- -log10(de_ct$padj + 1e-10)
     de_ct$score <- -log10(de_ct$padj + 1e-10) * de_ct$lfc
     auc <- tryCatch({
       roc(response = de_ct$is_marker, predictor = de_ct$score, quiet = TRUE)$auc
@@ -184,3 +184,21 @@ write_csv(df_summary_mean, "results/summary_mean_auc.csv")
 df_summary_auc = df_res %>% 
   tidyr::pivot_wider(names_from = model, values_from = auc)
 write_csv(df_summary_mean, "results/summary_auc.csv")
+
+
+# Prepare PDF
+umap = readRDS("img/umap_plot.RDS")
+auc_box = readRDS("img/auc_boxplot.RDS")
+auc_barplot = readRDS("img/auc_bar_plot.RDS")
+
+des = "
+AABBC
+"
+
+library(patchwork)
+p = free(umap) + free(auc_barplot) + free(auc_box) + 
+  patchwork::plot_layout(design = des) + 
+  patchwork::plot_annotation(tag_levels = c("A"))
+
+saveRDS(p, "img/10_pbmc_plot.RDS")
+ggsave("img/10_pbmc_plot.pdf", p, width = 12, height = 5)  
