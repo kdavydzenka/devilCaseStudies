@@ -126,3 +126,89 @@ limma.dupCorr.mult <- function(count, df){
   
   out
 }
+
+limma_pb_dupCorr.mult <- function(count, df) {
+  suppressPackageStartupMessages({
+    library(SingleCellExperiment)
+    library(glmGamPoi)
+    library(edgeR)
+    library(limma)
+    library(dplyr)
+    library(tibble)
+  })
+  
+  # ---- checks ----
+  if (!("tx_cell" %in% names(df))) 
+    stop("df must contain 'tx_cell'.")
+  if (!("id" %in% names(df))) 
+    stop("df must contain 'id' (patient) for duplicateCorrelation blocking.")
+  
+  df$tx_cell <- factor(df$tx_cell)
+  df$id      <- factor(df$id)
+  if (length(levels(df$tx_cell)) != 2) 
+    stop("tx_cell must have exactly two levels.")
+  
+  # orient matrix: genes x cells
+  mat <- if (ncol(count) == nrow(df)) count else t(count)
+  
+  # ---- build SCE and pseudobulk ----
+  sce.obj <- SingleCellExperiment(list(counts = mat), colData = df)
+  
+  # group_by: one pseudobulk per patient x cell-type
+  sce.pb <- glmGamPoi::pseudobulk(
+    sce.obj,
+    group_by = vars(id, tx_cell),
+    verbose  = FALSE
+  )
+  
+  pb_df <- as.data.frame(colData(sce.pb))
+  pb_df$tx_cell <- factor(pb_df$tx_cell)
+  pb_df$id      <- factor(pb_df$id)
+  
+  # design: intercept + treatment on pseudobulk samples
+  design <- model.matrix(~ 1 + tx_cell, data = pb_df)
+  
+  s <- Sys.time()
+  
+  # edgeR container + TMM on pseudobulk counts
+  y <- DGEList(counts(sce.pb))
+  y <- calcNormFactors(y)  # TMM normalization
+  
+  # voom transform
+  v <- voom(y, design, plot = FALSE)
+  
+  # estimate within-patient correlation between repeated pseudobulks
+  dupcor   <- duplicateCorrelation(v, design = design, block = pb_df$id)
+  rho_hat  <- dupcor$consensus.correlation
+  
+  # fit model with correlation
+  fit <- lmFit(v, design, block = pb_df$id, correlation = rho_hat)
+  fit <- eBayes(fit)
+  
+  tt <- topTable(fit, coef = 2, number = Inf, sort.by = "none")
+  
+  e <- Sys.time()
+  delta_time <- as.numeric(difftime(e, s, units = "secs"))
+  
+  # ---- extract results ----
+  beta <- tt$logFC          # log2 fold-change
+  tval <- tt$t
+  se   <- beta / tval
+  pval <- tt$P.Value
+  
+  out <- tibble(
+    `Estimate`   = as.numeric(beta),
+    `Std. Error` = as.numeric(se),
+    `t value`    = as.numeric(tval),
+    `Pr(>|t|)`   = as.numeric(pval),
+    `Time`       = delta_time
+  )
+  
+  out <- as.matrix(out)
+  rownames(out) <- rownames(tt)
+  
+  attr(out, "dupCor_consensus") <- rho_hat
+  attr(out, "n_pseudobulk_samples") <- ncol(sce.pb)
+  
+  out
+}

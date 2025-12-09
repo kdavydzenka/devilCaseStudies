@@ -24,23 +24,20 @@ list.func <- list(
   limma.mult,
   limma_voom_cell.mult,
   # limma.dupCorr.mult,
+  # limma_pb_dupCorr.mult,
   glmgp.cell.mult,
   nebula.mult,
   devil.fit, 
   devil.overdisp.new,
   devil.overdisp.old,
   devil.overdisp.MOM
-  #,
-  # devil.base,
-  # devil.mixed, 
-  # devil.pure
 )
 
 method_names = c(
   "deSeq2 (Pb)",  "edgeR (Pb)", 
   "MAST (cell)", "Seurat (cell)", 
   "limma (Pb)", "limma (cell)", 
-  # "limmaDupCorr (cell)",
+  "limmaDupCorr (Pb)",
   "glmGamPoi (cell)", 
   "NEBULA", 
   "devil (Poisson)", 

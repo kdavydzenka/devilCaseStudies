@@ -27,51 +27,9 @@ DEVIL_NAME_MAPPING = c("devil" = "devil (Poisson)",
                        "devil (MOM overdisp)" = "devil (MOM-NB)")
 
 MY_PALETTE = c(
-  "edgeR" = "#7D629E",
-  "edgeR (Pb)" = "#7D629E",
-  "limma" = "#B96461",
-  "limma (Pb)" = "#B96461",
-  "glmGamPoi (cell)" = "#EAB578",
-  "glmGamPoi" = "#EAB578",
-  "Nebula" = "steelblue",
-  "NEBULA" = "steelblue",
-  "Devil (base)" = "#099668",
-  "Devil (mixed)" = "#099668",
-  "Devil" = "#099668",
-  "devil" = "#099668",
-  "devil (new)" = "#099668",
-  "devil (overdisp)" = "darkslategray"
-)
-
-
-MY_PALETTE = c(
-  "Devil (base)" = "#099668",
-  "Devil (mixed)" = "#099668",
-  "Devil" = "#099668",
-  "devil" = "#099668",
-  "devil (new)" = "#099668",
-  "devil (overdisp)" = "darkslategray",
-  "Nebula" = "steelblue",
-  "NEBULA" = "steelblue",
-  "edgeR" = "#7D629E",
-  "edgeR (Pb)" = "#7D629E",
-  "limma" = "#B96461",
-  "limma (Pb)" = "#B96461",
-  "glmGamPoi (cell)" = "#EAB578",
-  "glmGamPoi" = "#EAB578",
-  "limmaDupCorr (cell)" = "#8B0000",
-  "limmaDupCorr" = "#8B0000",
-  "Seurat (cell)" = "#708090",
-  "Seurat (Wilcox)" = "#708090",
-  "Seurat" = "#708090",
-  "MAST (cell)" = "#D8BFD8",
-  "MAST" = "#D8BFD8"
-)
-
-MY_PALETTE = c(
   "devil (MOM-NB)" = "#099668",
   "devil (MLE-NB)" = "#2A4747",
-  "devil (I-NB)" = "#6F9283",
+  # "devil (I-NB)" = "#6F9283",
   "devil (Poisson)" = "#92AA83",
   "Nebula" = "steelblue",
   "NEBULA" = "steelblue",
@@ -98,24 +56,11 @@ METHOD_LEVELS = c("Devil (base)", "Devil (mixed)", "Devil", "devil (new)", "devi
 
 METHOD_LEVELS = names(MY_PALETTE)
 
-
-# method_cellwise_supp = c("edgeR (Pb)", "MAST (cell)", "Seurat (cell)", "limma (Pb)",
-#                          "glmGamPoi (cell)", "NEBULA", "devil (base)", "limmaDupCorr (cell)")
-# method_patientwise_supp = c("edgeR (Pb)", "MAST (cell)", "Seurat (cell)", "limma (Pb)",
-#                             "glmGamPoi (cell)", "NEBULA", "devil (mixed)", "limmaDupCorr (cell)")
-# method_cellwise_main = c("edgeR (Pb)", "MAST (cell)", "limma (Pb)",
-#                          "glmGamPoi (cell)", "NEBULA", "devil (base)")
-# method_patientwise_main = c("edgeR (Pb)", "MAST (cell)", "limma (Pb)",
-#                             "glmGamPoi (cell)", "NEBULA", "devil (mixed)")
-
 method_patientwise_supp = method_cellwise_supp = c("edgeR (Pb)", "MAST (cell)", "Seurat (cell)", "limma (Pb)",
-                         "glmGamPoi (cell)", "NEBULA", "limmaDupCorr (cell)", "devil (MLE-NB)", "devil (MOM-NB)", "devil (I-NB)")
+                         "glmGamPoi (cell)", "NEBULA", "limmaDupCorr (cell)", "devil (MLE-NB)", "devil (MOM-NB)")
 
 method_patientwise_main = method_cellwise_main = c("edgeR (Pb)", "MAST (cell)", "limma (Pb)",
                                                    "glmGamPoi (cell)", "NEBULA", "devil (MOM-NB)")
-#
-# method_patientwise_supp = c("edgeR (Pb)", "MAST (cell)", "Seurat (cell)", "limma (Pb)",
-#                             "glmGamPoi (cell)", "NEBULA", "devil (Poisson)", "limmaDupCorr (cell)", "devil (MLE-NB)")
 
 
 
