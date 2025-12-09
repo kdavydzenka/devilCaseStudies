@@ -22,3 +22,8 @@ de_analysis/nullpower/timing_results
 de_analysis/nullpower/figures/RDS/
 de_analysis/nullpower/data/
 cell_types_analysis/marker_finder/data/
+muscle_case_study_revision/results/MuscleRNA/fits/
+muscle_case_study_revision/results/MuscleRNA/fits_sub/
+muscle_case_study_revision/results/MuscleRNA/fits/
+muscle_case_study_revision/results/MuscleRNA/fits_sub/
+muscle_case_study_revision/logs/
