@@ -84,7 +84,7 @@ df_slopes_patients = dplyr::bind_rows(
 p1_patients <- res %>%
   ggplot(aes(x = n_patients, y = runtime, color = method)) +
   geom_point(alpha = 0.4, size = 1.5) +
-  geom_smooth(method = "loess", se = TRUE, linewidth = 1, span = 0.75) +
+  geom_smooth(method = "loess", se = TRUE, linewidth = 1) +
   scale_y_continuous(transform = "log10") +
   scale_color_manual(values = MY_PALETTE, name = "Method") +
   labs(
@@ -144,11 +144,8 @@ df_slopes_covariates = dplyr::bind_rows(
 p2_covariates <- res %>%
   ggplot(aes(x = n_covariates, y = runtime, color = method)) +
   geom_point(alpha = 0.4, size = 1.5) +
-  geom_smooth(method = "loess", se = TRUE, linewidth = 1, alpha = 0.2) +
-  scale_y_log10(
-    breaks = trans_breaks("log10", function(x) 10^x),
-    labels = trans_format("log10", math_format(10^.x))
-  ) +
+  geom_smooth(method = "loess", se = TRUE, linewidth = 1) +
+  scale_y_continuous(transform = "log10") +
   scale_color_manual(values = MY_PALETTE, name = "Method") +
   labs(
     x = "Number of Covariates",
@@ -214,46 +211,46 @@ saveRDS(p3_speedup_covariates, "figures/plot_speedup_covariates.RDS")
 # Supplementary Table: Summary Statistics ####
 
 summary_run_time_patients <- res %>%
-  group_by(method, n_patients) %>%
-  summarise(
+  dplyr::group_by(method, n_patients) %>%
+  dplyr::summarise(
     mean_runtime = mean(runtime, na.rm = TRUE),
     sd_runtime   = sd(runtime, na.rm = TRUE),
     .groups = "drop"
   ) %>%
-  mutate(
+  dplyr::mutate(
     mean_runtime = round(mean_runtime, 2),
     sd_runtime   = round(sd_runtime, 2),
     runtime = str_glue("{mean_runtime} ± {sd_runtime}")
   ) %>%
-  select(method, n_patients, runtime) %>%
+  dplyr::select(method, n_patients, runtime) %>%
   pivot_wider(
     names_from = n_patients,
     values_from = runtime,
     names_prefix = "patients_"
   ) %>%
   dplyr::mutate(method = factor(method, levels = c("devil", "glmGamPoi", "NEBULA"))) %>% 
-  arrange(method)
+  dplyr::arrange(method)
 
 summary_run_time_covariates <- res %>%
-  group_by(method, n_covariates) %>%
-  summarise(
+  dplyr::group_by(method, n_covariates) %>%
+  dplyr::summarise(
     mean_runtime = mean(runtime, na.rm = TRUE),
     sd_runtime   = sd(runtime, na.rm = TRUE),
     .groups = "drop"
   ) %>%
-  mutate(
+  dplyr::mutate(
     mean_runtime = round(mean_runtime, 2),
     sd_runtime   = round(sd_runtime, 2),
     runtime = str_glue("{mean_runtime} ± {sd_runtime}")
   ) %>%
-  select(method, n_covariates, runtime) %>%
+  dplyr::select(method, n_covariates, runtime) %>%
   pivot_wider(
     names_from = n_covariates,
     values_from = runtime,
     names_prefix = "Covariates_"
   ) %>%
   dplyr::mutate(method = factor(method, levels = c("devil", "glmGamPoi", "NEBULA"))) %>% 
-  arrange(method)
+  dplyr::arrange(method)
 
 write_csv(summary_run_time_covariates, "summarized_results/supplementary_table_runtime_covariates.csv")
 write_csv(summary_run_time_patients, "summarized_results/supplementary_table_runtime_patients.csv")
