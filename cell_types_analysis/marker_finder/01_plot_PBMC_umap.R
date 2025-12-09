@@ -69,21 +69,26 @@ my_large_palette <- c(
 
 seu$cell_type = seu$x
 
-f = .2
-idxs = sample(1:ncol(seu), as.integer(f * ncol(seu)))
-seu_sub = seu[,idxs]
+umap_data = dplyr::tibble(
+  UMAP_1 = seu@reductions$umap@cell.embeddings[,1],
+  UMAP_2 = seu@reductions$umap@cell.embeddings[,2],
+  cell_type = seu$cell_type
+)
 
-umap_plot = DimPlot(
-  seu_sub,
-  reduction = "umap",
-  group.by  = "cell_type",
-  pt.size   = 0.5
-) + theme_bw() +
+saveRDS(umap_data, "results/umap_data.rds")
+  
+  
+
+f = .5
+umap_plot = umap_data %>% 
+  dplyr::slice_sample(prop = f) %>% 
+  ggplot(mapping = aes(x = UMAP_1, y = UMAP_2, col = cell_type)) +
+  geom_point( size=.2) +
   scale_color_manual(values = my_large_palette) +
-  ggtitle("") +
-  labs(x = "UMAP 1", y = "UMAP 2")
-umap_plot
-
-umap_plot = ggplotify::as.ggplot(umap_plot)
+  theme_bw() +
+  labs(x = "UMAP 1", y = "UMAP 2", col="Cluster") +
+  guides(color = guide_legend(override.aes = list(size=2))) +
+  theme(text=element_text(size=12)) +
+  labs(col = "")
 
 saveRDS(umap_plot, "img/umap_plot.RDS")

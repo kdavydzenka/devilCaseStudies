@@ -122,15 +122,15 @@ pang <- decoupleR::get_resource(name = "PanglaoDB", organism = "human", license 
 pang <- pang %>% transmute(source="PanglaoDB", gene=genesymbol, cell_type=cell_type)
 
 pang_mapped <- pang %>%
-  left_join(syn_map, by = c("cell_type" = "panglao")) %>%
-  mutate(target = coalesce(target, cell_type)) %>%  # keep unmapped original names
-  filter(target %in% c(
+  dplyr::left_join(syn_map, by = c("cell_type" = "panglao")) %>%
+  dplyr::mutate(target = coalesce(target, cell_type)) %>%  # keep unmapped original names
+  dplyr::filter(target %in% c(
     "Gamma_delta_T", "Granulocyte", "Memory_B",
     "Memory_CD4_T", "Memory_CD8_T", "Monocytes",
     "Naive_B", "Naive_CD4_T", "Naive_CD8_T", "NK"
   )) %>%
-  select(gene, cell_type = target) %>%
-  distinct()
+  dplyr::select(gene, cell_type = target) %>%
+  dplyr::distinct()
 rm(pang)
 # Read df
 
@@ -149,7 +149,7 @@ df_res = df_res %>% dplyr::select(cell_type, auc, model)
 
 auc_bar_plot = df_res %>% 
   ggplot2::ggplot(mapping = aes(x = cell_type, y = auc, fill = model)) +
-  geom_col(position = "dodge") +
+  geom_col(position = "dodge", width = .7) +
   theme_bw() +
   scale_fill_manual(values = method_colors) +
   labs(y = "AUC", x = "Cell type", fill = "Method") +
@@ -196,9 +196,11 @@ AABBC
 "
 
 library(patchwork)
-p = free(umap) + free(auc_barplot) + free(auc_box) + 
+p = free(umap + theme(legend.position = "bottom") + guides(color = guide_legend(nrow = 3, override.aes = list(size=1.5)))) + 
+  free(auc_barplot + theme(legend.position = "bottom")) + 
+  free(auc_box) + 
   patchwork::plot_layout(design = des) + 
-  patchwork::plot_annotation(tag_levels = c("A"))
+  patchwork::plot_annotation(tag_levels = c("A")) & theme(plot.tag = element_text(face = "bold"))
 
 saveRDS(p, "img/10_pbmc_plot.RDS")
-ggsave("img/10_pbmc_plot.pdf", p, width = 12, height = 5)  
+ggsave("img/10_pbmc_plot.pdf", p, width = 12, height = 5.5, units = "in") 

@@ -7,8 +7,8 @@ set.seed(SEED)
 
 args = commandArgs(trailingOnly=TRUE)
 
-dataset_name = "BigLiverData" 
-tissue = "liver"
+dataset_name = "BaronPancreasData" 
+tissue = "pancreas"
 
 ## Input data
 dataset_name <- args[1]
@@ -53,23 +53,6 @@ for (ct in unique(seurat_obj$cell_type)) {
 }
 seurat_obj$cell_type <- new_cell_type
 ground_truth <- computeGroundTruth(seurat_obj) %>% dplyr::arrange(cluster)
-# seurat_obj$cell_type <- cell_type_names_to_scMayo_names(seurat_obj$cell_type, tissue)
-# computeGroundTruth(seurat_obj) %>% dplyr::arrange(cluster)
-
-# umap_plot_seurat <- Seurat::DimPlot(
-#   seurat_obj,
-#   reduction = "umap",
-#   group.by = "seurat_clusters",
-#   label = T,
-#   repel = T) +
-#   ggtitle("") +
-#   scale_color_manual(values = my_large_palette) +
-#   theme(axis.line=element_blank(),axis.text.x=element_blank(),
-#         axis.text.y=element_blank(),axis.ticks=element_blank(),
-#         axis.title.x=element_blank(),
-#         axis.title.y=element_blank(),legend.position="none",
-#         panel.background=element_blank(),panel.border=element_blank(),panel.grid.major=element_blank(),
-#         panel.grid.minor=element_blank(),plot.background=element_blank())
 
 data_umap <- dplyr::tibble(
   umap1=seurat_obj@reductions$umap@cell.embeddings[,1],
@@ -92,6 +75,10 @@ data_avg_umap <- data_umap %>%
   dplyr::group_by(cluster) %>%
   dplyr::select(umap1, umap2) %>%
   dplyr::summarise_all(mean)
+
+if (nrow(data_umap) > 10000) {
+  data_umap = data_umap %>% dplyr::sample_n(size = 10000)
+}
 
 pA <- ggplot() +
   geom_point(data_umap, mapping = aes(x=umap1, y=umap2, col=legend), size=.1) +
@@ -295,7 +282,7 @@ pC
 
 pC <- de_genes_called %>%
   ggplot(mapping = aes(x = factor(cluster, levels = sort(as.numeric(unique(cluster)))), y=n, fill=model)) +
-  geom_bar(position = "dodge", stat = 'identity') +
+  geom_bar(position = "dodge", stat = 'identity', width = .7) +
   theme_bw() +
   labs(x = "Cluster", y = "Up-regulated genes", col="Algorithm") +
   scale_fill_manual(values = method_colors)
@@ -323,54 +310,24 @@ pD <- timings %>%
   labs(x = "Cluster", y = "Time fold change", col="Algorithm")
 pD
 
-# timing <- readRDS(paste0("results/",dataset_name,"/time.RDS")) %>%
-#   dplyr::mutate(time = as.numeric(delta_time, units = "secs")) %>%
-#   dplyr::arrange(-time)
-#
-# timing %>%
-#   dplyr::left_join(de_genes_called, by="method") %>%
-#   dplyr::mutate(time_ratio = time / time[method == "devil"]) %>%
-#   dplyr::group_by(cluster) %>%
-#   dplyr::mutate(genes_ratio = n / n[method == "devil"]) %>%
-#   dplyr::filter(method != "devil") %>%
-#   ggplot(mapping = aes(x = time_ratio, y = genes_ratio, col = method)) +
-#   geom_point()
-
-
-# pC <- timing %>%
-#   ggplot(mapping = aes(x=method, y=time, fill=method)) +
-#   geom_col() +
-#   theme_bw() +
-#   labs(x = "", y="Time (s)") +
-#   scale_fill_manual(values = method_colors) +
-#   theme(
-#     axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
-#     text=element_text(size=12),
-#     legend.position = 'none'
-#   )
-# pC
-
-# ggsave(filename = paste0(img_folder, "timing.pdf"), dpi=300, width = 40, height = 60, units = 'mm')
-# if (save_svg) {ggsave(filename = paste0(img_folder, "timing.svg"), dpi=300, width = 40, height = 60, units = 'mm')}
-#
 unlink("Rplots.pdf")
 
 # save figure
 des = "
-AAAA
-AAAA
-AAAA
-BBBB
-BBBB
-CCDD
-CCDD
+AAAA##
+AAAA##
+AAAA##
+BBBBBB
+BBBBBB
+CCCDDD
+CCCDDD
 "
 
-final_plot <- free(pA) + free(pB) + free(pC) + free(pD) + 
+final_plot <- free(pA + coord_equal()) + free(pB) + free(pC) + free(pD) + 
   plot_layout(design = des) +
   plot_annotation(tag_levels = "A") & 
   theme(
-    plot.tag = element_text(face = "bold", size = 15)
+    plot.tag = element_text(face = "bold")
   )
 
 ggsave(paste0("plot_figure/", dataset_name, ".pdf"), dpi=600, width = 10, height = 10, plot = final_plot)

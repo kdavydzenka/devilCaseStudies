@@ -2,6 +2,7 @@
 rm(list = ls())
 library(tidyverse)
 library(patchwork)
+source("../figure_theme.R")
 
 NAME_MAPPING = c(
   "devil+batch+sf:none+se:patient" = "devil (Sandwich+Batch)",
@@ -133,7 +134,7 @@ plot_evaluation = function(scale_regimes) {
       axis.text.x = element_blank(), axis.ticks.x = element_blank()
     ) +
     labs(
-      x = "Method",
+      x = "",
       y = "MCC"
     ) +
     scale_color_manual(values = PALETTE) +
@@ -150,7 +151,7 @@ plot_evaluation = function(scale_regimes) {
       axis.text.x = element_blank(), axis.ticks.x = element_blank()
     ) +
     labs(
-      x = "Method",
+      x = "",
       y = "FDR"
     ) +
     scale_color_manual(values = PALETTE) +
@@ -188,8 +189,8 @@ plot_evaluation = function(scale_regimes) {
     theme(legend.direction = "vertical", plot.tag = element_text(face = 'bold'))
 }
 
-p_small = plot_evaluation(scale_regimes = "small")
-p_large = plot_evaluation(scale_regimes = "large")
+p_small = plot_evaluation(scale_regimes = "small") & MY_THEME & theme(legend.position = "right")
+p_large = plot_evaluation(scale_regimes = "large") & MY_THEME & theme(legend.position = "right")
 
-ggsave("figures/bench_batch_small.pdf", plot = p_small, width = 12, height = 9, units = "in")
-ggsave("figures/bench_batch_large.pdf", plot = p_large, width = 12, height = 9, units = "in")
+ggsave("figures/bench_batch_small.pdf", plot = p_small, width = 12, height = 10, units = "in")
+ggsave("figures/bench_batch_large.pdf", plot = p_large, width = 12, height = 10, units = "in")

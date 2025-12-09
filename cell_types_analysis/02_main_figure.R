@@ -13,7 +13,7 @@ args = commandArgs(trailingOnly=TRUE)
 # tissue <- args[2]
 # save_svg <- as.logical(args[3])
 
-dataset_name <- "pbmc"
+dataset_name <- "BigBloodData"
 tissue <- "blood"
 
 img_folder <- paste0("plot_figure/", dataset_name, "/")
@@ -55,20 +55,20 @@ ground_truth <- computeGroundTruth(seurat_obj) %>% dplyr::arrange(cluster)
 # seurat_obj$cell_type <- cell_type_names_to_scMayo_names(seurat_obj$cell_type, tissue)
 # computeGroundTruth(seurat_obj) %>% dplyr::arrange(cluster)
 
-umap_plot_seurat <- Seurat::DimPlot(
-  seurat_obj,
-  reduction = "umap",
-  group.by = "seurat_clusters",
-  label = T,
-  repel = T) +
-  ggtitle("") +
-  scale_color_manual(values = my_large_palette) +
-  theme(axis.line=element_blank(),axis.text.x=element_blank(),
-        axis.text.y=element_blank(),axis.ticks=element_blank(),
-        axis.title.x=element_blank(),
-        axis.title.y=element_blank(),legend.position="none",
-        panel.background=element_blank(),panel.border=element_blank(),panel.grid.major=element_blank(),
-        panel.grid.minor=element_blank(),plot.background=element_blank())
+# umap_plot_seurat <- Seurat::DimPlot(
+#   seurat_obj,
+#   reduction = "umap",
+#   group.by = "seurat_clusters",
+#   label = T,
+#   repel = T) +
+#   ggtitle("") +
+#   scale_color_manual(values = my_large_palette) +
+#   theme(axis.line=element_blank(),axis.text.x=element_blank(),
+#         axis.text.y=element_blank(),axis.ticks=element_blank(),
+#         axis.title.x=element_blank(),
+#         axis.title.y=element_blank(),legend.position="none",
+#         panel.background=element_blank(),panel.border=element_blank(),panel.grid.major=element_blank(),
+#         panel.grid.minor=element_blank(),plot.background=element_blank())
 
 data_umap <- dplyr::tibble(
   umap1=seurat_obj@reductions$umap@cell.embeddings[,1],
@@ -93,7 +93,7 @@ data_avg_umap <- data_umap %>%
   dplyr::summarise_all(mean)
 
 pA <- ggplot() +
-  geom_point(data_umap, mapping = aes(x=umap1, y=umap2, col=legend), size=.1) +
+  geom_point(data_umap %>% dplyr::sample_frac(size = 0.1), mapping = aes(x=umap1, y=umap2, col=legend), size=.1) +
   geom_point(data = data_avg_umap, mapping = aes(x=umap1, y = umap2)) +
   scale_color_manual(values = my_large_palette) +
   theme_bw() +
@@ -102,6 +102,15 @@ pA <- ggplot() +
   geom_label(data_avg_umap, mapping=aes(x=umap1, y = umap2, label = cluster)) +
   theme(text=element_text(size=12))
 pA
+
+pA_void <- ggplot() +
+  geom_point(data_umap %>% dplyr::sample_frac(size = 0.1), mapping = aes(x=umap1, y=umap2, col=legend), size=.1) +
+  scale_color_manual(values = my_large_palette) +
+  theme_void() + theme(legend.position = "none")
+  #labs(x = "UMAP 1", y = "UMAP 2", col="Cluster") +
+  #guides(color = guide_legend(override.aes = list(size=2))) +
+  #geom_label(data_avg_umap, mapping=aes(x=umap1, y = umap2, label = cluster)) +
+  #theme(text=element_text(size=12))
 
 counts <- as.matrix(seurat_obj@assays$RNA$counts)
 percentage_tibble <- lapply(unique(seurat_obj$seurat_clusters), function(c) {
@@ -266,13 +275,13 @@ top_genes <- de_res %>%
 
 top_genes %>% dplyr::filter(cluster == c)
 
-de_res %>%
+p_volc = de_res %>%
   dplyr::filter(cluster == c) %>%
   dplyr::mutate(name_id = paste(name, cluster, sep = ":")) %>%
   dplyr::mutate(is_marker = name_id %in% top_genes$gene_id) %>%
   #dplyr::mutate(adj_pval = ifelse(adj_pval <= 6.181186e-16, 6.181186e-16, adj_pval)) %>%
   #dplyr::filter(!((!is_marker) & (adj_pval == 6.181186e-16))) %>%
-  ggplot(mapping = aes(x=lfc, y=-log10(adj_pval), col=is_marker, size=-log10(adj_pval))) +
+  ggplot(mapping = aes(x=lfc, y=-log10(adj_pval), col=is_marker)) +
   geom_point() +
   scale_color_manual(values = c(alpha("black", .05), alpha(my_large_palette[c], 1))) +
   xlim(c(-5, NA)) +
@@ -285,9 +294,9 @@ de_res %>%
     legend.position = 'none'
   )
 #theme(legend.position = 'bottom')
-
-ggsave(filename = paste0(img_folder, "volcano_",c,".pdf"), dpi=300, width = 82, height = 85, units = 'mm')
-if (save_svg) { ggsave(filename = paste0(img_folder, "volcano_",c,".svg"), dpi=300, width = 82, height = 85, units = 'mm') }
+p_volc
+ggsave(filename = paste0(img_folder, "volcano_",c,".pdf"), dpi=300, width = 82, height = 85, units = 'mm', plot = p_volc)
+# if (save_svg) { ggsave(filename = paste0(img_folder, "volcano_",c,".svg"), dpi=300, width = 82, height = 85, units = 'mm') }
 
 # Heatmap ####
 lfc_cut <- 1
@@ -342,104 +351,58 @@ rez_max <- rez %>%
   dplyr::filter(score == max(score)) %>%
   dplyr::mutate(is_correct = true_cell_type == pred)
 
+annot_order = rez %>% dplyr::select(cluster, annot) %>% dplyr::distinct() %>% 
+  dplyr::mutate(cluster = as.numeric(cluster)) %>% dplyr::arrange(cluster) %>% 
+  dplyr::pull(annot)
+rez$annot = factor(rez$annot, levels = annot_order)
+rez_max$annot = factor(rez_max$annot, levels = annot_order)
+ 
 # res_heatmap <- ggplot() +
 #   # geom_point(rez_max %>% dplyr::filter(score > .1, is_correct), mapping = aes(x = ground_truth, y=pred, size=score * 3), shape=20, col="yellowgreen") +
 #   # geom_point(rez_max %>% dplyr::filter(score > .1, !is_correct), mapping = aes(x = ground_truth, y=pred, size=score * 3), shape=20, col="indianred") +
-#   geom_tile(rez %>% dplyr::filter(score > .1), mapping = aes(x=ground_truth, y=pred, fill=score), col='darkslategray') +
-#   geom_point(rez_max %>% dplyr::filter(score > .1, is_correct), mapping = aes(x = ground_truth, y=pred), size =3, shape=20, col="yellowgreen") +
-#   geom_point(rez_max %>% dplyr::filter(score > .1, !is_correct), mapping = aes(x = ground_truth, y=pred), shape=20, size=3, col="indianred") +
+#   geom_point(rez %>% dplyr::filter(score > .1), mapping = aes(x=annot, y=pred, fill=score, col=score, size=score)) +
+#   geom_point(rez_max %>% dplyr::filter(score > .1, is_correct), mapping = aes(x = annot, y=pred, size=score / 2), shape=20, col="yellowgreen", show.legend = F) +
+#   geom_point(rez_max %>% dplyr::filter(score > .1, !is_correct), mapping = aes(x = annot, y=pred, size = score / 2), shape=20, col="indianred", show.legend = F) +
 #   theme_bw() +
+#   scale_color_gradient(low = "#deebf7", high = "#08519c") +
 #   scale_fill_gradient(low = "#deebf7", high = "#08519c") +
-#   labs(x = "True cell types", y = "Predicted cell types", fill="Score") +
+#   labs(x = "True cell types", y = "Predicted cell types", fill="Score", col = "Score", size = "Score") +
 #   #scale_color_continuous(type = "viridis") +
 #   theme(
 #     axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
 #     text=element_text(size=10),
 #     legend.position = 'none'
-#     )
+#   )
 
-res_heatmap <- ggplot() +
-  # geom_point(rez_max %>% dplyr::filter(score > .1, is_correct), mapping = aes(x = ground_truth, y=pred, size=score * 3), shape=20, col="yellowgreen") +
-  # geom_point(rez_max %>% dplyr::filter(score > .1, !is_correct), mapping = aes(x = ground_truth, y=pred, size=score * 3), shape=20, col="indianred") +
-  geom_point(rez %>% dplyr::filter(score > .1), mapping = aes(x=annot, y=pred, fill=score, col=score, size=score * 5)) +
-  geom_point(rez_max %>% dplyr::filter(score > .1, is_correct), mapping = aes(x = annot, y=pred, size=score), shape=20, col="yellowgreen") +
-  geom_point(rez_max %>% dplyr::filter(score > .1, !is_correct), mapping = aes(x = annot, y=pred, size = score), shape=20, col="indianred") +
+library(ggnewscale)
+
+res_heatmap = ggplot() +
+  geom_point(rez %>% dplyr::filter(score > .1), 
+             mapping = aes(x=annot, y=pred, fill=score, col=score, size=score)) +
+  scale_color_gradient(name = "Score", low = "#deebf7", high = "#08519c") +
+  scale_fill_gradient(name = "Score", low = "#deebf7", high = "#08519c") +
+  scale_size_continuous(name = "Score") +
+  new_scale_color() +
+  geom_point(rez_max %>% dplyr::filter(score > .1, is_correct), 
+             mapping = aes(x = annot, y=pred, size=score / 2, color="Correct"), 
+             shape=20) +
+  geom_point(rez_max %>% dplyr::filter(score > .1, !is_correct), 
+             mapping = aes(x = annot, y=pred, size = score / 2, color="Incorrect"), 
+             shape=20) +
+  scale_color_manual(name = "Prediction",
+                     values = c("Correct" = "yellowgreen", "Incorrect" = "indianred"), guide = guide_legend(override.aes = list(size = 4))) +
   theme_bw() +
-  scale_color_gradient(low = "#deebf7", high = "#08519c") +
-  scale_fill_gradient(low = "#deebf7", high = "#08519c") +
-  labs(x = "True cell types", y = "Predicted cell types", fill="Score") +
-  #scale_color_continuous(type = "viridis") +
+  labs(x = "True cell types", y = "Predicted cell types") +
   theme(
     axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
-    text=element_text(size=10),
-    legend.position = 'none'
+    legend.position = "bottom",
+    legend.box = "horizontal"
   )
 
 res_heatmap
 
 ggsave(filename = paste0(img_folder, "heatmap.pdf"), dpi=300, width = 140, height = 105, units = 'mm')
-ggsave(filename = paste0(img_folder, "heatmap.svg"), dpi=300, width = 140, height = 105, units = 'mm')
-
-# Upset Plot ####
-#mutations <- read.csv( system.file("extdata", "mutations.csv", package = "UpSetR"), header=T, sep = ",")
-
-# n_markers <- 1000000
-# pval_cut <- .05
-# all_markers <- c()
-# c <- 11
-#
-# for (m in c("devil", "nebula", "glmGamPoi")) {
-#   de_res <- de_res_total <- readRDS(paste0('results/', dataset_name, '/', m, '.RDS')) %>% na.omit()
-#   if (sum(grepl("ENSG", de_res$name)) == nrow(de_res)) {
-#     suppressMessages(de_res$name <- mapIds(org.Hs.eg.db, keys=de_res$name,column="SYMBOL", keytype="ENSEMBL", multiVals="first"))
-#   }
-#
-#   top_genes <- de_res %>%
-#     dplyr::group_by(cluster) %>%
-#     dplyr::filter(lfc > lfc_cut, adj_pval <= pval_cut) %>%
-#     dplyr::arrange(-lfc) %>%
-#     dplyr::filter(cluster == c) %>%
-#     dplyr::slice(1:n_markers) %>% pull(name) %>% unname()
-#
-#   all_markers <- c(all_markers, top_genes) %>% unique() %>% na.omit()
-# }
-#
-# mm <- lapply(c("devil", "nebula", "glmGamPoi"), function(m) {
-#   de_res <- de_res_total <- readRDS(paste0('results/', dataset_name, '/', m, '.RDS')) %>% na.omit()
-#   if (sum(grepl("ENSG", de_res$name)) == nrow(de_res)) {
-#     suppressMessages(de_res$name <- mapIds(org.Hs.eg.db, keys=de_res$name,column="SYMBOL", keytype="ENSEMBL", multiVals="first"))
-#   }
-#
-#   top_genes <- de_res %>%
-#     dplyr::group_by(cluster) %>%
-#     dplyr::filter(lfc > lfc_cut, adj_pval <= pval_cut) %>%
-#     dplyr::arrange(-lfc) %>%
-#     dplyr::filter(cluster == c) %>%
-#     dplyr::slice(1:n_markers) %>% pull(name) %>% unname()
-#
-#   c((all_markers %in% top_genes) %>% as.numeric())
-# }) %>% do.call('rbind', .)
-#
-#
-# mm_tibble <- lapply(1:ncol(mm), function(i) {
-#   print(i)
-#   g <- all_markers[i]
-#   v <- mm[,i] %>% unlist()
-#   dplyr::tibble(gene = g, devil=v[1], nebula=v[2], glmGamPoi=v[3])
-# }) %>% do.call("bind_rows", .) %>% as.data.frame()
-#
-# method_order <- mm_tibble[,2:4] %>% colSums() %>% sort(decreasing = T)
-# method_colors_arranged <- c()
-#
-# for (m in names(method_order)) {
-#   method_colors_arranged <- c(method_colors_arranged, method_colors[which(names(method_colors) == m)])
-# }
-#
-# upset_plot <- UpSetR::upset(data.frame(mm_tibble), sets.bar.color = method_colors_arranged,
-#                             order.by = "freq", text.scale = 1.8)
-# svg(filename = paste0(img_folder, 'upset_plot.svg'), width = 9, height = 5)
-# upset_plot %>% print()
-# dev.off()
+# ggsave(filename = paste0(img_folder, "heatmap.svg"), dpi=300, width = 140, height = 105, units = 'mm')
 
 # Gene overlap ####
 lfc_cut <- 1
@@ -465,13 +428,6 @@ pF <- de_genes_called %>%
   scale_fill_manual(values = method_colors) +
   theme(legend.position = "bottom")
 pF
-# pF <- de_genes_called %>%
-#   ggplot(mapping = aes(x = factor(cluster, levels = sort(as.numeric(unique(cluster)))), y=n, fill=model)) +
-#   geom_bar(position = "dodge", stat = 'identity') +
-#   theme_bw() +
-#   labs(x = "Cluster", y = "Up-regulated genes", col="", fill="") +
-#   scale_fill_manual(values = method_colors) +
-#   scale_y_continuous(transform = "log10")
 # pF
 
 ggsave(filename = paste0(img_folder, "genes_called.pdf"), dpi=300, width = 75, height = 60, units = 'mm')
@@ -506,6 +462,60 @@ unlink("Rplots.pdf")
 
 # save figure
 
-pCB <- (pC | pB) + plot_layout(widths = c(1.2,3))
-final_plot <- (pA / pCB) + plot_annotation(tag_levels = "A") + plot_layout(heights = c(2,1))
-ggsave(paste0("plot_figure/", dataset_name, ".png"), dpi=400, width = 8, height = 8, plot = final_plot)
+des = "
+AAAAABB##
+AAAAABB##
+AAAAABB##
+AAAAABB##
+AAAAABBCC
+AAAAABBCC
+DDDDEEEEE
+DDDDEEEEE
+DDDDEEEEE
+DDDDFFFGG
+DDDDFFFGG
+DDDDFFFGG"
+
+
+final_plot = free(pA) + free(p_volc) + free(pA_void) + 
+  free(res_heatmap) + free(pB) + free(pF) + free(pD) + 
+  plot_layout(design = des) +
+  plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(face = "bold"))
+
+
+ggsave(paste0("plot_figure/main_cell_type.pdf"), width = 14, height = 12, plot = final_plot, units = "in")
+
+
+# Extra
+# p_10_umap = readRDS("marker_finder/img/umap_plot.RDS")
+# p_10_bar = readRDS("marker_finder/img/auc_bar_plot.RDS")
+# p_10_boxplot = readRDS("marker_finder/img/auc_boxplot.RDS")
+# 
+# des = "
+# AAAAABB##
+# AAAAABB##
+# AAAAABB##
+# AAAAABB##
+# AAAAABBCC
+# AAAAABBCC
+# DDDDEEEEE
+# DDDDEEEEE
+# DDDDEEEEE
+# DDDDFFFGG
+# DDDDFFFGG
+# DDDDFFFGG
+# HHHHIILLL
+# HHHHIILLL
+# HHHHIILLL
+# HHHHIILLL
+# "
+# 
+# 
+# final_plot = free(pA) + free(p_volc) + free(pA_void) + 
+#   free(res_heatmap) + free(pB) + free(pF) + free(pD) + 
+#   free(p_10_umap) + free(p_10_bar) + free(p_10_boxplot) +
+#   plot_layout(design = des) +
+#   plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(face = "bold"))
+# 
+# 
+# ggsave(paste0("plot_figure/main_cell_type_FULL.pdf"), width = 14, height = 18, plot = final_plot, units = "in")
