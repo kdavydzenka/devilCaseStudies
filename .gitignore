@@ -19,7 +19,6 @@ batch_effect_benchmark/
 scaling_patients_and_covariates/results/*
 muscle_case_study/results/MuscleRNA/fit/*devil*
 de_analysis/nullpower/timing_results
-de_analysis/nullpower/figures/RDS/
 de_analysis/nullpower/data/
 cell_types_analysis/marker_finder/data/
 muscle_case_study_revision/results/MuscleRNA/fits/
