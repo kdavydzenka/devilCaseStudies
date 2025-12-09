@@ -14,8 +14,11 @@ get_time_results <- function(results_folder) {
   results_paths <- list.files(results_folder)
   results_paths <- results_paths[!results_paths %in% c("fits", "memory", "large", "no_overdispersion")]
 
+  device_path = "a100"
+
   results <- lapply(results_paths, function(device_path) {
     lapply(list.files(file.path(results_folder, device_path)), function(p){
+      if (!grepl(".rds", p)) return(dplyr::tibble())
       info <- unlist(strsplit(p, "_"))
       res = readRDS(file.path(results_folder, device_path, p))
       dplyr::tibble(
@@ -38,6 +41,83 @@ get_time_results <- function(results_folder) {
                                              "h100" = "devil - h100")) %>%
     dplyr::mutate(Measure = "observed")
 }
+
+# get_time_results <- function(results_folder) {
+#   # top-level folders: e.g. "a100", "h100", "cpu", "fits", ...
+#   results_paths <- list.files(results_folder)
+#   results_paths <- results_paths[!results_paths %in% c("fits", "memory", "large", "no_overdispersion")]
+#   
+#   results <- lapply(results_paths, function(device) {
+#     device_dir <- file.path(results_folder, device)
+#     lvl2 <- list.files(device_dir)
+#     
+#     # Case 1: CPU-like layout -> .rds files directly inside device_dir
+#     if (any(grepl("\\.rds$", lvl2))) {
+#       files <- lvl2[grepl("\\.rds$", lvl2)]
+#       
+#       lapply(files, function(p) {
+#         info <- strsplit(p, "_")[[1]]
+#         res  <- readRDS(file.path(device_dir, p))
+#         
+#         dplyr::tibble(
+#           device        = device,
+#           n_gpus        = NA_integer_,
+#           model_name    = paste(info[1], info[2]),   # "cpu devil", "cpu glmGamPoi"
+#           n_genes       = info[3],
+#           n_cells       = info[5],
+#           n_cell_types  = info[7],
+#           time          = as.numeric(res$time[[1]], units = "secs")
+#         )
+#       }) %>% dplyr::bind_rows()
+#       
+#     } else {
+#       # Case 2: GPU-like layout -> subdirs "1_gpus", "8_gpus", each with .rds files
+#       gpu_folders <- lvl2
+#       
+#       lapply(gpu_folders, function(gpu_folder) {
+#         gpu_dir <- file.path(device_dir, gpu_folder)
+#         files   <- list.files(gpu_dir, pattern = "\\.rds$")
+#         n_gpu_val <- as.integer(strsplit(gpu_folder, "_")[[1]][1])  # "1_gpus" -> 1
+#         
+#         lapply(files, function(p) {
+#           info <- strsplit(p, "_")[[1]]
+#           res  <- readRDS(file.path(gpu_dir, p))
+#           
+#           dplyr::tibble(
+#             device        = device,                    # "a100" or "h100"
+#             n_gpus        = n_gpu_val,                 # 1 or 8
+#             model_name    = paste(info[1], info[2]),   # "gpu devil"
+#             n_genes       = info[3],
+#             n_cells       = info[5],
+#             n_cell_types  = info[7],
+#             time          = as.numeric(res$time[[1]], units = "secs")
+#           )
+#         }) %>% dplyr::bind_rows()
+#       }) %>% dplyr::bind_rows()
+#     }
+#   }) %>%
+#     dplyr::bind_rows() %>%
+#     dplyr::mutate(
+#       n_cells = as.numeric(n_cells),
+#       n_genes = as.numeric(n_genes)
+#     )
+#   
+#   results %>%
+#     # For GPU runs, replace "gpu devil" with the device name ("a100"/"h100")
+#     dplyr::mutate(
+#       model_name = ifelse(grepl("^gpu", model_name), device, model_name)
+#     ) %>%
+#     dplyr::mutate(
+#       model_name = dplyr::recode(
+#         model_name,
+#         "cpu devil"     = "devil - cpu",
+#         "cpu glmGamPoi" = "glmGamPoi - cpu",
+#         "a100"          = "devil - a100",
+#         "h100"          = "devil - h100"
+#       ),
+#       Measure = "observed"
+#     )
+# }
 
 
 predict_time_results = function(results) {
@@ -105,27 +185,34 @@ predict_time_results = function(results) {
 
 
 get_memory_results <- function(results_folder) {
-  results_path <- file.path(results_folder, "memory")
-
-  results = lapply(list.files(results_path), function(p){
-    info <- unlist(strsplit(p, "_"))
-    res = readRDS(file.path(results_path, p))
-    dplyr::tibble(
-      model_name = paste(info[1], info[2]),
-      n_genes = info[3],
-      n_cells = info[5],
-      n_cell_types = info[7],
-      #time = as.numeric(unlist(res$time), units = "secs")#,
-      memory = as.numeric(res$mem_alloc) / 1e9
-    )
+  results_paths <- list.files(results_folder)
+  results_paths <- results_paths[!results_paths %in% c("fits", "memory", "large", "no_overdispersion")]
+  
+  device_path = "h100"
+  
+  results <- lapply(results_paths, function(device_path) {
+    lapply(list.files(file.path(results_folder, device_path)), function(p){
+      if (!grepl(".rds", p)) return(NULL)
+      info <- unlist(strsplit(p, "_"))
+      res = readRDS(file.path(results_folder, device_path, p))
+      dplyr::tibble(
+        model_name = paste(info[1], info[2]),
+        n_genes = info[3],
+        n_cells = info[5],
+        n_cell_types = info[7],
+        #time = as.numeric(unlist(res$time), units = "secs")#,
+        memory = res$mem_alloc / 1e9
+      ) %>% dplyr::mutate(model_name = ifelse(grepl("gpu" ,model_name), device_path, model_name))
+    }) %>% do.call("bind_rows", .)
   }) %>% do.call("bind_rows", .) %>%
     dplyr::mutate(n_cells = as.numeric(n_cells), n_genes = as.numeric(n_genes))
-
+  
   results %>%
     dplyr::mutate(model_name = dplyr::recode(model_name,
                                              "cpu devil" = "devil - cpu",
                                              "cpu glmGamPoi" = "glmGamPoi - cpu",
-                                             "gpu devil" = "devil - a100")) %>%
+                                             "a100" = "devil - a100",
+                                             "h100" = "devil - h100")) %>%
     dplyr::mutate(Measure = "observed")
 }
 
@@ -424,62 +511,292 @@ plot_time_and_memory_comparison = function(results, n_extrapolation = 3, ncols=2
   # )
 }
 
+plot_correlations_single <- function(fits_folder) {
+  require(dplyr)
+  require(ggplot2)
+  require(ggpubr)
+  require(tibble)
+  require(patchwork)
+  
+  fits <- list.files(fits_folder, full.names = TRUE)
+  
+  devil.res     <- readRDS(fits[grepl("cpu_devil_",     fits)])
+  gpu.devil.res <- readRDS(fits[grepl("gpu_devil_",     fits)])
+  glm.res       <- readRDS(fits[grepl("cpu_glmGam",     fits)])
+  
+  # Helper to reshape comparisons
+  make_df <- function(x1, x2, val1, val2, metric) {
+    tibble(
+      x = x1[[metric]],
+      y = x2[[metric]],
+      metric = metric,
+      comp = paste0(val1, " vs ", val2)
+    )
+  }
+  
+  # Build master dataframe
+  df_all <- bind_rows(
+    make_df(gpu.devil.res, devil.res, "devil – A100", "devil – CPU", "lfc"),
+    make_df(devil.res, glm.res, "devil – CPU", "glmGamPoi – CPU", "lfc"),
+    make_df(gpu.devil.res, devil.res, "devil – A100", "devil – CPU", "theta"),
+    make_df(devil.res, glm.res, "devil – CPU", "glmGamPoi – CPU", "theta")
+  ) %>%
+    mutate(
+      metric = factor(metric, levels = c("lfc", "theta"), labels = c("LFC", "Theta")),
+      comp = factor(comp)
+    )
+  
+  # Single combined plot
+  p <- df_all %>%
+    ggplot(aes(x = x, y = y)) +
+    geom_point(alpha = 0.35, size = 0.6) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", linewidth = 0.4) +
+    ggpubr::stat_cor(
+      method = "pearson",
+      size = 3,
+      label.x.npc = "left",
+      label.y.npc = "top"
+    ) +
+    facet_grid(metric ~ comp, scales = "free", switch = "both") +
+    #coord_equal() +
+    theme_bw() +
+    labs(x = "Estimate (model 1)", y = "Estimate (model 2)")
+  
+  p
+}
+
+plot_correlations_by_model <- function(fits_folder) {
+  require(dplyr)
+  require(tidyr)
+  require(ggplot2)
+  require(ggpubr)
+  require(tibble)
+  
+  fits <- list.files(fits_folder, full.names = TRUE)
+  
+  devil.res     <- readRDS(fits[grepl("cpu_devil_", fits)])
+  gpu.devil.res <- readRDS(fits[grepl("gpu_devil_", fits)])
+  glm.res       <- readRDS(fits[grepl("cpu_glmGam", fits)])
+  
+  # Build long data frame
+  df_lfc <- tibble(
+    devil_cpu = devil.res$lfc,
+    `devil - a100`   = gpu.devil.res$lfc,
+    `glmGamPoi - cpu` = glm.res$lfc
+  ) %>%
+    pivot_longer(
+      cols = c(`devil - a100`, `glmGamPoi - cpu`),
+      names_to = "model",
+      values_to = "estimate"
+    ) %>%
+    mutate(metric = "LFC")
+  
+  df_theta <- tibble(
+    devil_cpu = devil.res$theta,
+    `devil - a100`   = gpu.devil.res$theta,
+    `glmGamPoi - cpu` = glm.res$theta
+  ) %>%
+    pivot_longer(
+      cols = c(`devil - a100`, `glmGamPoi - cpu`),
+      names_to = "model",
+      values_to = "estimate"
+    ) %>%
+    mutate(metric = "Theta")
+  
+  df_all <- bind_rows(df_lfc, df_theta) %>%
+    mutate(
+      metric = factor(metric, levels = c("LFC", "Theta")),
+      model  = factor(model, levels = c("devil - a100", "glmGamPoi - cpu"))
+    ) %>%
+    filter(
+      between(devil_cpu,  -10, 10),
+      between(estimate, -10, 10)
+    )
+  
+  # Plot
+  p <- df_all %>%
+    ggplot(aes(x = devil_cpu, y = estimate, colour = model)) +
+    geom_point(size = 0.8) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", linewidth = 0.4) +
+    ggpubr::stat_cor(
+      aes(colour = model),
+      method = "pearson"
+    ) +
+    facet_wrap(~ metric, nrow = 1, scales = "free") +
+    scale_colour_manual(
+      name = "Model",
+      values = method_colors
+    ) +
+    labs(
+      x = expression(paste("devil-CPU estimate")),
+      y = "Other model estimate"
+    ) +
+    theme_bw()
+  
+  p
+}
+
+
+
+
+# plot_correlations <- function(fits_folder) {
+#   fits <- list.files(fits_folder, full.names = T)
+# 
+#   devil.res <- readRDS(fits[grepl("/cpu_devil_", fits)])
+#   gpu.devil.res <- readRDS(fits[grepl("/gpu_devil_", fits)])
+#   glm.res <- readRDS(fits[grepl("/cpu_glmGam", fits)])
+#   
+# 
+#   p1 <- dplyr::bind_rows(
+#     dplyr::tibble(
+#       x = gpu.devil.res$lfc,
+#       x_name = "devil - a100",
+#       y = devil.res$lfc,
+#       y_name = "devil - cpu"
+#     ),
+#     dplyr::tibble(
+#       x = devil.res$lfc,
+#       x_name = "devil",
+#       y = glm.res$lfc,
+#       y_name = "glmGamPoi"
+#     )
+#   ) %>%
+#     dplyr::group_by(x_name, y_name) %>%
+#     dplyr::filter(abs(x) < 10 & abs(y) < 10) %>%
+#     ggplot(mapping = aes(x=x, y=y)) +
+#     geom_point() +
+#     ggpubr::stat_cor() +
+#     facet_grid(x_name~y_name, switch = "both") +
+#     theme_bw() +
+#     labs(x = bquote(LFC[1]), y=bquote(LFC[2]))
+#   
+#   p2 <- dplyr::bind_rows(
+#     dplyr::tibble(
+#       x = gpu.devil.res$theta,
+#       x_name = "devil - gpu",
+#       y = devil.res$theta,
+#       y_name = "devil - cpu"
+#     ),
+#     dplyr::tibble(
+#       x = devil.res$theta,
+#       x_name = "devil",
+#       y = glm.res$theta,
+#       y_name = "glmGamPoi"
+#     )
+#   ) %>%
+#     dplyr::group_by(x_name, y_name) %>%
+#     ggplot(mapping = aes(x=x, y=y)) +
+#     geom_point() +
+#     ggpubr::stat_cor() +
+#     facet_grid(x_name~y_name, switch = "both") +
+#     theme_bw() +
+#     labs(x = bquote(theta[1]), y=bquote(theta[2]))
+#   
+#   list(lfc=p1, theta=p2)
+# }
 
 plot_correlations <- function(fits_folder) {
-  fits <- list.files(fits_folder, full.names = T)
-
-  devil.res <- readRDS(fits[grepl("/cpu_devil_", fits)])
-  gpu.devil.res <- readRDS(fits[grepl("/gpu_devil_", fits)])
-  glm.res <- readRDS(fits[grepl("/cpu_glmGam", fits)])
+  require(dplyr)
+  require(ggplot2)
+  require(ggpubr)
+  require(tibble)
   
-
-  p1 <- dplyr::bind_rows(
-    # dplyr::tibble(
-    #   x = gpu.devil.res$lfc,
-    #   x_name = "devil - a100",
-    #   y = devil.res$lfc,
-    #   y_name = "devil - cpu"
-    # ),
-    dplyr::tibble(
+  fits <- list.files(fits_folder, full.names = TRUE)
+  
+  devil.res     <- readRDS(fits[grepl("cpu_devil_",     fits)])
+  gpu.devil.res <- readRDS(fits[grepl("gpu_devil_",     fits)])
+  glm.res       <- readRDS(fits[grepl("cpu_glmGam",     fits)])
+  
+  ## small helper to avoid repetition
+  nice_corr_plot <- function(df, x_lab, y_lab, clip_range = NULL) {
+    if (!is.null(clip_range)) {
+      df <- df %>%
+        filter(
+          x >= clip_range[1], x <= clip_range[2],
+          y >= clip_range[1], y <= clip_range[2]
+        )
+    }
+    
+    df %>%
+      mutate(
+        x_name = factor(x_name),
+        y_name = factor(y_name)
+      ) %>%
+      ggplot(aes(x = x, y = y)) +
+      geom_point(alpha = 0.35, size = 0.7) +
+      geom_abline(slope = 1, intercept = 0, linetype = "dashed", linewidth = 0.4) +
+      ggpubr::stat_cor(
+        method = "pearson",
+        label.x.npc = "left",
+        label.y.npc = "top",
+        size = 3
+      ) +
+      facet_grid(x_name ~ y_name, switch = "both") +
+      coord_equal() +
+      labs(x = x_lab, y = y_lab) +
+      theme_bw(base_size = 11) +
+      theme(
+        strip.placement   = "outside",
+        strip.background  = element_rect(fill = "grey95", colour = NA),
+        panel.grid        = element_blank(),
+        axis.title        = element_text(face = "bold"),
+        axis.text         = element_text(colour = "black"),
+        panel.border      = element_rect(colour = "black"),
+        plot.margin       = margin(5.5, 5.5, 5.5, 5.5),
+        strip.text.x      = element_text(face = "bold"),
+        strip.text.y      = element_text(face = "bold")
+      )
+  }
+  
+  ## LFC plot
+  df_lfc <- bind_rows(
+    tibble(
+      x = gpu.devil.res$lfc,
+      x_name = "devil – A100",
+      y = devil.res$lfc,
+      y_name = "devil – CPU"
+    ),
+    tibble(
       x = devil.res$lfc,
-      x_name = "devil",
+      x_name = "devil – CPU",
       y = glm.res$lfc,
-      y_name = "glmGamPoi"
+      y_name = "glmGamPoi – CPU"
     )
-  ) %>%
-    dplyr::group_by(x_name, y_name) %>%
-    dplyr::filter(abs(x) < 10 & abs(y) < 10) %>%
-    ggplot(mapping = aes(x=x, y=y)) +
-    geom_point() +
-    ggpubr::stat_cor() +
-    facet_grid(x_name~y_name, switch = "both") +
-    theme_bw() +
-    labs(x = bquote(LFC[1]), y=bquote(LFC[2]))
+  )
   
-  p2 <- dplyr::bind_rows(
-    # dplyr::tibble(
-    #   x = gpu.devil.res$theta,
-    #   x_name = "devil - gpu",
-    #   y = devil.res$theta,
-    #   y_name = "devil - cpu"
-    # ),
-    dplyr::tibble(
+  p1 <- nice_corr_plot(
+    df_lfc,
+    x_lab = bquote(LFC[fit[1]]),
+    y_lab = bquote(LFC[fit[2]]),
+    clip_range = c(-10, 10)
+  )
+  
+  ## theta plot
+  df_theta <- bind_rows(
+    tibble(
+      x = gpu.devil.res$theta,
+      x_name = "devil – A100",
+      y = devil.res$theta,
+      y_name = "devil – CPU"
+    ),
+    tibble(
       x = devil.res$theta,
-      x_name = "devil",
+      x_name = "devil – CPU",
       y = glm.res$theta,
-      y_name = "glmGamPoi"
+      y_name = "glmGamPoi – CPU"
     )
-  ) %>%
-    dplyr::group_by(x_name, y_name) %>%
-    ggplot(mapping = aes(x=x, y=y)) +
-    geom_point() +
-    ggpubr::stat_cor() +
-    facet_grid(x_name~y_name, switch = "both") +
-    theme_bw() +
-    labs(x = bquote(theta[1]), y=bquote(theta[2]))
+  )
   
-  list(lfc=p1, theta=p2)
+  p2 <- nice_corr_plot(
+    df_theta,
+    x_lab = bquote(theta[fit[1]]),
+    y_lab = bquote(theta[fit[2]])
+    # no clipping here; add clip_range if you want
+  )
+  
+  list(lfc = p1, theta = p2)
 }
+
 
 # fits_folder <- "results/baronPancreas/fits/"
 plot_upset <- function(fits_folder, lfc_cut, pval_cut) {
@@ -487,9 +804,11 @@ plot_upset <- function(fits_folder, lfc_cut, pval_cut) {
 
   l = list()
   fits = fits[grepl("cpu_devil_", fits) | grepl("gpu_devil_", fits) | grepl("glmGamPoi", fits)]
+  f = fits[1]
   res <- lapply(fits, function(f) {
     info = unlist(strsplit(unlist(strsplit(f, "fits//"))[2], "_"))
     name = paste(info[1], info[2])
+    
     de_genes = readRDS(f) %>%
       dplyr::mutate(name = paste0("Gene ", row_number())) %>%
       dplyr::filter(abs(lfc) >= lfc_cut, adj_pval <= pval_cut) %>%
@@ -514,6 +833,36 @@ plot_upset <- function(fits_folder, lfc_cut, pval_cut) {
     scale_x_upset() +
     theme_bw() +
     labs(x = "")
+}
+
+plot_venn = function(fits_folder, lfc_cut, pval_cut) {
+  fits <- list.files(fits_folder, full.names = T)
+  
+  fits = fits[grepl("cpu_devil_", fits) | grepl("gpu_devil_", fits) | grepl("glmGamPoi", fits)]
+  res <- lapply(fits, function(f) {
+    info = unlist(strsplit(unlist(strsplit(f, "fits//"))[2], "_"))
+    name = paste(info[1], info[2])
+    
+    de_genes = readRDS(f) %>%
+      dplyr::mutate(name = paste0("Gene ", row_number())) %>%
+      dplyr::filter(abs(lfc) >= lfc_cut, adj_pval <= pval_cut) %>%
+      dplyr::pull(name)
+    #dplyr::tibble(algorithm = name, de_genes = de_genes)
+    de_genes
+  })
+  
+  fit_names = lapply(fits, function(f) {
+    if (grepl("cpu_devil", f)) return("devil - cpu")
+    if (grepl("cpu_glm", f)) return("glmGamPoi - cpu")
+    if (grepl("gpu_devil", f)) return("devil - a100")
+  }) %>% unlist()
+  
+  names(res) = fit_names
+  library(ggVennDiagram)
+  ggVennDiagram(res, set_color = method_colors[fit_names], label_alpha = 0) +
+    scale_x_continuous(expand = expansion(mult = .2)) +
+    scale_fill_gradient(low="white",high = "gray80") +
+    theme(legend.position = "none")
 }
 
 plot_volc = function (
@@ -578,27 +927,20 @@ plot_large_test = function(dataset_name, add_competitors = FALSE) {
   results_folder <- file.path("results", dataset_name, "large")
   res_paths = list.files(results_folder)
   p = res_paths[1]
-
-  all_res = lapply(res_paths, function(p) {
-    info <- unlist(strsplit(p, "_"))
-    res = readRDS(file.path(results_folder, p))
-    dplyr::tibble(
-      model_name = paste(info[1], info[2]),
-      n_genes = as.numeric(info[3]),
-      n_cells = as.numeric(info[5]),
-      n_cell_types = info[7],
-      time = as.numeric(unlist(res$time), units = "secs")
-    )
-  }) %>% do.call("bind_rows", .) %>% dplyr::mutate(model_name = "devil - h100")
+  all_res = read.delim(file.path(results_folder, p), sep = ",") %>% 
+    dplyr::rename(n_genes=X.genes, n_cells=cells, time=timing_gpu_sec) %>% 
+    dplyr::mutate(model_name = "devil - h100")
 
   if (add_competitors) {
     competitors_time = get_time_results(file.path("results/", dataset_name))
-    competitors_time = competitors_time %>% dplyr::filter(n_genes %in% all_res$n_genes) %>%
-      dplyr::group_by(model_name, n_genes, n_cells, n_cell_types) %>%
-      dplyr::summarise(time = mean(time))
+    competitors_time = competitors_time %>% 
+      dplyr::filter(n_genes %in% all_res$n_genes) %>%
+      dplyr::group_by(model_name, n_genes, n_cells) %>%
+      dplyr::summarise(time = mean(time)) %>% 
+      dplyr::filter(!grepl("a100", model_name))
 
     all_res = dplyr::bind_rows(all_res, competitors_time) %>%
-      dplyr::group_by(model_name, n_genes, n_cells, n_cell_types) %>%
+      dplyr::group_by(model_name, n_genes, n_cells) %>%
       dplyr::summarise(time = mean(time))
 
     all_res %>%

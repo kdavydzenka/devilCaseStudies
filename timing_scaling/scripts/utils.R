@@ -83,7 +83,12 @@ filter_input <- function(cnt, design_matrix, p_genes, p_cells, n.sub.genes = NUL
   }
 
   # Find cells with highest expression
-  cell.idxs <- order(colSums(cnt), decreasing = TRUE)[1:n.sub.cells]
+  if (n.sub.cells > ncol(cnt)) {
+    cell.idxs <- sample(1:ncol(cnt), size = n.sub.cells, replace = TRUE)
+  } else {
+    cell.idxs <- order(colSums(cnt), decreasing = TRUE)[1:n.sub.cells]
+  }
+  
   cnt <- cnt[,cell.idxs]
   design_matrix <- design_matrix[cell.idxs,]
 

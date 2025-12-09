@@ -79,7 +79,7 @@ fit.devil <- devil::fit_devil(
   offset = 1e-6,
   init_overdispersion = NULL, 
   init_beta_rough = TRUE,
-  max_iter = 500
+  max_iter = 100
 )
 e <- Sys.time()
 print(e-s)
