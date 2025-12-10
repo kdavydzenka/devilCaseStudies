@@ -37,6 +37,7 @@ MY_PALETTE = c(
   "edgeR (Pb)" = "#7D629E",
   "limma" = "#B96461",
   "limma (Pb)" = "#B96461",
+  "limma (cell)" = "firebrick3",
   "glmGamPoi (cell)" = "#EAB578",
   "glmGamPoi" = "#EAB578",
   "limmaDupCorr (cell)" = "#8B0000",
@@ -51,21 +52,16 @@ MY_PALETTE = c(
 MY_PALETTE %>% names()
 
 METHOD_LEVELS = c("Devil (base)", "Devil (mixed)", "Devil", "devil (new)", "devil", "devil (overdisp)", "NEBULA", "Nebula", "glmGamPoi (cell)", "glmGamPoi",
-                  "MAST (cell)", "MAST", "Seurat (cell)", "Seurat", "Seurat (Wilcox)", "limmaDupCorr (cell)", "limmaDupCorr",
+                  "MAST (cell)", "MAST", "Seurat (cell)", "Seurat", "Seurat (Wilcox)","limma (cell)", "limmaDupCorr (cell)", "limmaDupCorr",
                   "limma", "limma (Pb)", "edgeR", "edgeR (Pb)")
 
 METHOD_LEVELS = names(MY_PALETTE)
 
-method_patientwise_supp = method_cellwise_supp = c("edgeR (Pb)", "MAST (cell)", "Seurat (cell)", "limma (Pb)",
+method_patientwise_supp = method_cellwise_supp = c("edgeR (Pb)", "MAST (cell)", "Seurat (cell)", "limma (Pb)", "limma (cell)",
                          "glmGamPoi (cell)", "NEBULA", "limmaDupCorr (cell)", "devil (MLE-NB)", "devil (MOM-NB)")
 
 method_patientwise_main = method_cellwise_main = c("edgeR (Pb)", "MAST (cell)", "limma (Pb)",
                                                    "glmGamPoi (cell)", "NEBULA", "devil (MOM-NB)")
-
-
-
-# method_patientwise_main = c("edgeR (Pb)", "MAST (cell)", "limma (Pb)",
-#                             "glmGamPoi (cell)", "NEBULA", "devil (Poisson)", "devil (MLE-NB)")
 
 MAX_GENE = 1000
 
