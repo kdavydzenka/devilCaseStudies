@@ -34,10 +34,13 @@ list.func <- list(
 )
 
 method_names = c(
-  "deSeq2 (Pb)",  "edgeR (Pb)", 
-  "MAST (cell)", "Seurat (cell)", 
-  "limma (Pb)", "limma (cell)", 
-  "limmaDupCorr (Pb)",
+  "deSeq2 (Pb)",  
+  "edgeR (Pb)", 
+  "MAST (cell)", 
+  "Seurat (cell)", 
+  "limma (Pb)", 
+  "limma (cell)", 
+  # "limmaDupCorr (Pb)",
   "glmGamPoi (cell)", 
   "NEBULA", 
   "devil (Poisson)", 
