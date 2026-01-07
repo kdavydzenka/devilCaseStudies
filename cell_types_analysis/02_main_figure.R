@@ -221,6 +221,11 @@ for (m in c("devil", "nebula", "glmGamPoi")) {
   }
 }
 
+comparison_tibble %>%
+  dplyr::filter(pval_cut %in% c(.05, .01, 1e-10, 1e-20)) %>%
+  dplyr::group_by(model, n_markers) %>%
+  dplyr::mutate(mean_acc = mean(acc), sd_acc = sd(acc)) %>% view()
+
 pB <- comparison_tibble %>%
   dplyr::filter(pval_cut %in% c(.05, .01, 1e-10, 1e-20)) %>%
   dplyr::group_by(model, n_markers) %>%
