@@ -657,8 +657,8 @@ for (c in conditions) {
     if ("geneID" %in% colnames(rna_sub)) rna_sub$name = rna_sub$geneID
     
     library(dplyr)
-    library(RankAggreg)
-    #library(rbo)
+    # library(RankAggreg)
+    # library(rbo)
     
     # Merge full + sub on gene
     df = rna_full %>%
