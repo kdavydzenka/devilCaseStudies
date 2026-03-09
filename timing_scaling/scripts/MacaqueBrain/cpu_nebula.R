@@ -40,13 +40,14 @@ d = input$d
 
 print("NEBULA fitting...")
 
+nebula_grouped = nebula::group_cell(as.matrix(c), id = cls, pred = d)
 s <- Sys.time()
-fit.nebula <- nebula::nebula(
-  count = c, 
-  id = cls, 
-  pred = d, 
-  ncore = 1
-)
+
+if (is.null(nebula_grouped)) {
+  fit.nebula = nebula::nebula(count = as.matrix(c), id = clusters, pred = d, ncore = 1)  
+} else {
+  fit.nebula = nebula::nebula(nebula_grouped$count, nebula_grouped$id, nebula_grouped$pred, ncore = 1)  
+}
 e <- Sys.time()
 print(e-s)
 
@@ -76,9 +77,22 @@ for (n_genes in c(100, 1000, 5000)) {
     
     print("inference starting NEBULA ...")
     
-    b.nebula <- bench::mark(
-      nebula::nebula(count = c, id = cls, pred = d, ncore = 1), min_iterations = MIN_ITER, memory = T
-    )
+    grouped_nebula = nebula::group_cell(c, id = cls, pred = d)  
+    if (is.null(grouped_nebula)) {
+      b.nebula <- bench::mark(nebula::nebula(
+        c,
+        cls,
+        d, 
+        ncore = 1
+      ), min_iterations = MIN_ITER, memory = T)
+    } else {
+      b.nebula <- bench::mark(nebula::nebula(
+        grouped_nebula$count,
+        grouped_nebula$id,
+        grouped_nebula$pred, 
+        ncore = 1
+      ), min_iterations = MIN_ITER, memory = T)
+    }
     b.nebula$result <- NULL
     b.nebula$memory <- NULL
     

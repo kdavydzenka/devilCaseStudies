@@ -27,16 +27,27 @@ for (n_genes in c(100, 1000, 10000)) {
     input <- filter_input(cnt, design_matrix, NULL, NULL, n.sub.genes = n_genes, n.sub.cells = n_cells, clusters = clusters)
     c = as.matrix(input$c)
     d = input$d
+    cls = input$clusters
     
     print("inference starting NEBULA ...")
     
-    grouped_nebula = nebula::group_cell(c, id = input$clusters, pred = d)  
-    b.nebula <- bench::mark(nebula::nebula(
-      grouped_nebula$count,
-      grouped_nebula$id,
-      grouped_nebula$pred, 
-      ncore = 1
-    ), min_iterations = MIN_ITER, memory = T)
+    grouped_nebula = nebula::group_cell(c, id = cls, pred = d)  
+    if (is.null(grouped_nebula)) {
+      b.nebula <- bench::mark(nebula::nebula(
+        c,
+        cls,
+        d, 
+        ncore = 1
+      ), min_iterations = MIN_ITER, memory = T)
+    } else {
+      b.nebula <- bench::mark(nebula::nebula(
+        grouped_nebula$count,
+        grouped_nebula$id,
+        grouped_nebula$pred, 
+        ncore = 1
+      ), min_iterations = MIN_ITER, memory = T)
+    }
+    
     b.nebula$result <- NULL
     res_name = paste0("results/baronPancreas/cpu/cpu_NEBULA_", n_genes, "_ngene_", n_cells, "_ncells_", N_CELL_TYPES, "_celltypes.rds")
     saveRDS(b.nebula, file = res_name)
@@ -55,7 +66,11 @@ clusters = input$clusters
 print("Fitting NEBULA")
 
 nebula_grouped = nebula::group_cell(as.matrix(c), id = clusters, pred = d)
-fit.nebula = nebula::nebula(nebula_grouped$count, nebula_grouped$id, nebula_grouped$pred)
+if (is.null(nebula_grouped)) {
+  fit.nebula = nebula::nebula(count = as.matrix(c), id = clusters, pred = d, ncore = 1)
+} else {
+  fit.nebula = nebula::nebula(nebula_grouped$count, nebula_grouped$id, nebula_grouped$pred, ncore = 1)
+}
 
 nebula.final.res = dplyr::tibble(
   lfc = fit.nebula$summary$logFC_labelbeta / log(2), 
