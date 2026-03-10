@@ -1,7 +1,7 @@
 
 prep_MacaqueBrain_data <- function(N_CELL_TYPES, min_count_per_cell = 100, min_cell_per_gene = 100) {
   data = readRDS("datasets/macaque_brain.rds")
-
+  
   metadata <- data@meta.data
   cell_types = names(sort(table(metadata$cell_type), decreasing = TRUE))[1:N_CELL_TYPES]
 
@@ -23,8 +23,9 @@ prep_MacaqueBrain_data <- function(N_CELL_TYPES, min_count_per_cell = 100, min_c
 
   metadata <- metadata[cell_idx,]
   design_matrix <- model.matrix(~cell_type, metadata)
+  donors = metadata$donor_id
 
-  return(list(cnt = cnt, design_matrix = design_matrix))
+  return(list(cnt = cnt, design_matrix = design_matrix, donors = as.factor(donors)))
 }
 
 prep_HumanBlood_data <- function(N_CELL_TYPES, min_count_per_cell = 100, min_cell_per_gene = 100) {
@@ -70,7 +71,7 @@ prep_data_small <- function(min_count_per_cell = 100, min_cell_per_gene = 100) {
 
   design_matrix <- model.matrix(~label, data = metadata)
 
-  return(list(cnt = cnt, design_matrix = design_matrix))
+  return(list(cnt = cnt, design_matrix = design_matrix, donors = factor(metadata$donor)))
 }
 
 filter_input <- function(cnt, design_matrix, p_genes, p_cells, n.sub.genes = NULL, n.sub.cells = NULL, clusters = NULL) {

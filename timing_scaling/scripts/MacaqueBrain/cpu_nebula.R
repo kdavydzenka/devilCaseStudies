@@ -41,9 +41,8 @@ print("NEBULA fitting...")
 
 nebula_grouped = nebula::group_cell(as.matrix(c), id = cls, pred = d)
 s <- Sys.time()
-
 if (is.null(nebula_grouped)) {
-  fit.nebula = nebula::nebula(count = as.matrix(c), id = clusters, pred = d, ncore = 1)  
+  fit.nebula = nebula::nebula(count = as.matrix(c), id = cls, pred = d, ncore = 1)  
 } else {
   fit.nebula = nebula::nebula(nebula_grouped$count, nebula_grouped$id, nebula_grouped$pred, ncore = 1)  
 }
@@ -57,7 +56,7 @@ nebula.final.res = dplyr::tibble(
   theta = fit.nebula$overdispersion$Cell, 
   pval = fit.nebula$summary$`p_cell_typeGABAergic neuron`,
   adj_pval = p.adjust(fit.nebula$summary$`p_cell_typeGABAergic neuron`, "BH"))
-rm(glm.res, fit.nebula)
+rm(fit.nebula)
 
 print("Saving results...")
 
