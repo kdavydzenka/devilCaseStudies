@@ -14,6 +14,7 @@ data = prep_MacaqueBrain_data(N_CELL_TYPES = N_CELL_TYPES)
 
 cnt <- data$cnt
 design_matrix <- data$design_matrix
+clusters = data$donors
 
 n.genes <- dim(cnt)[1]
 n.cells <- dim(cnt)[2]
@@ -28,15 +29,13 @@ n_genes <- 1000
 n_cells <- 1e6
 
 input <- filter_input(cnt, design_matrix, NULL, NULL, n.sub.cells = n_cells, n.sub.genes = n_genes, clusters = clusters)
-c = as.matrix(input$c)
-d = input$d
-cls = input$clusters
 
 print(paste0("N genes = ", n_genes))
 print(paste0("N cells = ", n_cells))
 
 c = as.matrix(input$c)
 d = input$d
+cls = input$clusters
 
 print("NEBULA fitting...")
 
