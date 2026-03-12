@@ -4,7 +4,7 @@ require(tidyverse)
 library(patchwork)
 source("utils_img.R")
 
-model_levels = c("glmGamPoi - cpu", "devil - cpu", "devil - a100", "devil - h100")
+model_levels = c("NEBULA - cpu", "glmGamPoi - cpu", "devil - cpu", "devil - a100", "devil - h100")
 #model_levels = c("glmGamPoi - cpu", "devil - cpu", "devil - a100 (1)", "devil - h100 (1)", "devil - a100 (8)", "devil - h100 (8)")
 
 dataset_name = "MacaqueBrain"
@@ -31,11 +31,15 @@ for (dataset_name in c("MacaqueBrain", "baronPancreas")) {
   mem_results$model_name = factor(mem_results$model_name, levels = model_levels)
 
   # Comparisons ####
-  pA <- time_comparison(time_results)
-  pB <- memory_comparison(mem_results)
-
-  pC <- time_comparison(time_results, ratio = "glmGamPoi - cpu")
-  pD <- memory_comparison(mem_results, ratio = "devil - cpu")
+  # pA <- time_comparison(time_results)
+  # pB <- memory_comparison(mem_results)
+  # pC <- time_comparison(time_results, ratio = "glmGamPoi - cpu")
+  # pD <- memory_comparison(mem_results, ratio = "devil - cpu")
+  
+  pA <- time_comp_v2(time_results)
+  pB <- memory_comp_v2(mem_results)
+  pC <- time_comp_v2(time_results, ratio = "NEBULA - cpu") + scale_y_sqrt()
+  pD <- memory_comp_v2(mem_results, ratio = "devil - cpu") + scale_y_sqrt()
 
   # Correlations ####
   corr_plots <- plot_correlations_by_model(fits_folder)
@@ -43,8 +47,8 @@ for (dataset_name in c("MacaqueBrain", "baronPancreas")) {
   # (fits_folder)
 
   # Plot UpSet ####
-  upset <- plot_upset(fits_folder, lfc_cut = 1, pval_cut = .05)
-  upset = ggplotify::as.ggplot(upset)
+  # upset <- plot_upset(fits_folder, lfc_cut = 1, pval_cut = .05)
+  # upset = ggplotify::as.ggplot(upset)
   
   venn_plot = plot_venn(fits_folder, lfc_cut = 1, pval_cut = .05)
 
@@ -52,6 +56,8 @@ for (dataset_name in c("MacaqueBrain", "baronPancreas")) {
   dir.create(file.path("img/RDS/", dataset_name), recursive = T, showWarnings = F)
   if (dataset_name == "MacaqueBrain") {
     pLarge = plot_large_test(dataset_name, add_competitors = T)
+    pLarge = pLarge + scale_x_log10() + scale_y_sqrt() + geom_vline(xintercept = 1e6, linetype = "dotted", linewidth = .5, color = "darkslategray") +
+      annotate("text", x = 1e6, y = 1000, label = "1 million cells", angle = 90, vjust = 1.4)
     saveRDS(pLarge, file.path("img/RDS/", dataset_name, "large.RDS"))
   }
 
@@ -65,7 +71,7 @@ for (dataset_name in c("MacaqueBrain", "baronPancreas")) {
   saveRDS(pD, file.path("img/RDS/", dataset_name, "memory_ratio.RDS"))
   saveRDS(corr_plots, file.path("img/RDS/", dataset_name, "correlation.RDS"))
   saveRDS(venn_plot, file.path("img/RDS/", dataset_name, "venn_plot.RDS"))
-  saveRDS(upset, file.path("img/RDS/", dataset_name, "upset.RDS"))
+  #saveRDS(upset, file.path("img/RDS/", dataset_name, "upset.RDS"))
   # saveRDS(p_disp_runtime, file.path("img/RDS/", dataset_name, "disp_runtime.RDS"))
   # saveRDS(p_disp_speedup, file.path("img/RDS/", dataset_name, "disp_speedup.RDS"))
 }

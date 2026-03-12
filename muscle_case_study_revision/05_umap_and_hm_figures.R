@@ -40,12 +40,20 @@ de_res_top = de_res %>%
 de_res_top %>% ggplot(mapping = aes(x = lfc, y = -log10(adj_pval))) +
   geom_point()
 
+set.seed(1234)
 N_subsample <- 10000
 sample_idx = sample(1:ncol(input_data$counts), N_subsample, replace = FALSE)
 
 gene_markers = gene_markers[gene_markers %in% rownames(input_data$counts)]
 mat <- input_data$counts[gene_markers,sample_idx] %>% as.matrix()
 meta <- input_data$metadata[sample_idx,] 
+
+dim(input_data$counts)
+
+input_data$metadata$sample %>% unique() %>% length()
+
+
+dim(devil_interaction$input_matrix)
 
 meta = meta %>% 
   dplyr::mutate(`Cell type` = ifelse(cell_type == "Type II", 'Myonuclei TII', 'Myonuclei TI')) %>% 
@@ -70,9 +78,9 @@ patient_cluster = meta$sample
 q <- quantile(mat.scaled, c(0.05, 0.5, 0.95))  # 2%, 50%, 98%
 lim <- max(abs(q[1]), abs(q[3]))
 
-#hm_colors = c("#2166AC", "gray95", "#B2182B")
+hm_colors = c("#2166AC", "gray95", "#B2182B")
 #hm_colors = c("#FF00FF", "gray20", "#FFFF00")
-hm_colors = c("firebrick", "gray20", "forestgreen")
+#hm_colors = c("firebrick", "gray20", "forestgreen")
 
 col_fun <- circlize::colorRamp2(
   breaks = c(-lim, 0, lim),
@@ -230,7 +238,7 @@ lim <- max(abs(q[1]), abs(q[3]))
 
 #hm_colors = c("#2166AC", "gray95", "#B2182B")
 #hm_colors = c("#FF00FF", "gray20", "#FFFF00")
-hm_colors = c("firebrick", "gray20", "forestgreen")
+#hm_colors = c("firebrick", "gray20", "forestgreen")
 
 col_fun <- circlize::colorRamp2(
   breaks = c(-lim, 0, lim),

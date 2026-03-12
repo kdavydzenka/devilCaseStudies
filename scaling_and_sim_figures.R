@@ -103,8 +103,12 @@ pH = readRDS("de_analysis/nullpower/figures/RDS/main/ptiming_ratio.rds")
 design = "
 AAAAABBB
 AAAAABBB
-CCFFFFHH
-CCFFFFHH"
+AAAAACCC
+AAAAACCC
+AAAAACCC
+FFFFFHHH
+FFFFFHHH
+FFFFFHHH"
 
 final_plot = free(pA) + free(pB) + free(pC) +
   free(pFG) + free(pH) +
@@ -118,8 +122,8 @@ final_plot = free(pA) + free(pB) + free(pC) +
     strip.background = element_rect(fill = "gray90"),
     panel.grid.minor = element_blank()
   )
-final_plot
-ggsave(filename = "all_figures/scaling_and_sim/ext_2.pdf", plot = final_plot, dpi = 600, width = 13.7, height = 9, units = "in")
+# final_plot
+ggsave(filename = "all_figures/scaling_and_sim/ext_2.pdf", plot = final_plot, dpi = 600, width = 13.7, height = 12, units = "in")
 rm(pAB, pC, pFG, pH, final_plot, design)
 
 # SUPP SCALING ####
@@ -128,7 +132,6 @@ pA = readRDS("timing_scaling/img/RDS/MacaqueBrain/speedup.RDS") +
   theme(legend.direction='horizontal', legend.position = "bottom", legend.box = "vertical")
 pB = readRDS("timing_scaling/img/RDS/MacaqueBrain/memory_ratio.RDS") +
   theme(legend.direction='horizontal', legend.position = "bottom", legend.box = "vertical")
-pAB =
 
 final_plot = (pA + theme(legend.direction='vertical', legend.position = "bottom", legend.box = "horizontal")) +
   (pB + theme(legend.position = "none")) +
@@ -169,6 +172,7 @@ AAAAAA
 AAAAAA
 CCCCCC
 CCCCCC
+EEEEGG
 EEEEGG
 EEEEGG"
 
@@ -297,3 +301,5 @@ EEEE
   ggsave(paste0("all_figures/scaling_and_sim/supp_sim_",author,".png"), final_plot, width = 8 * 1.5, height = 11 * 1.5, dpi = 600, units = "in")
   ggsave(paste0("all_figures/scaling_and_sim/supp_sim_",author,".pdf"), final_plot, width = 8 * 1.5, height = 11 * 1.5, dpi = 600, units = "in")
 }
+
+# Clean supplementary for QQ plots and power

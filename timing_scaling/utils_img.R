@@ -5,6 +5,7 @@ method_colors = c(
   "glmGamPoi - cpu" = "#EAB578",
   "nebula" =  "steelblue",
   "NEBULA" =  "steelblue",
+  "NEBULA - cpu" =  "steelblue",
   "devil - cpu" = "#099668",
   "devil - h100" = "#384B41",
   "devil - a100" = "#9BB0A5"
@@ -14,7 +15,7 @@ get_time_results <- function(results_folder) {
   results_paths <- list.files(results_folder)
   results_paths <- results_paths[!results_paths %in% c("fits", "memory", "large", "no_overdispersion")]
 
-  device_path = "a100"
+  device_path = "cpu"
 
   results <- lapply(results_paths, function(device_path) {
     lapply(list.files(file.path(results_folder, device_path)), function(p){
@@ -37,6 +38,7 @@ get_time_results <- function(results_folder) {
     dplyr::mutate(model_name = dplyr::recode(model_name,
                                              "cpu devil" = "devil - cpu",
                                              "cpu glmGamPoi" = "glmGamPoi - cpu",
+                                             "cpu NEBULA" = "NEBULA - cpu",
                                              "a100" = "devil - a100",
                                              "h100" = "devil - h100")) %>%
     dplyr::mutate(Measure = "observed")
@@ -201,7 +203,7 @@ get_memory_results <- function(results_folder) {
         n_cells = info[5],
         n_cell_types = info[7],
         #time = as.numeric(unlist(res$time), units = "secs")#,
-        memory = res$mem_alloc / 1e9
+        memory = as.numeric(res$mem_alloc / 1e9)
       ) %>% dplyr::mutate(model_name = ifelse(grepl("gpu" ,model_name), device_path, model_name))
     }) %>% do.call("bind_rows", .)
   }) %>% do.call("bind_rows", .) %>%
@@ -211,6 +213,7 @@ get_memory_results <- function(results_folder) {
     dplyr::mutate(model_name = dplyr::recode(model_name,
                                              "cpu devil" = "devil - cpu",
                                              "cpu glmGamPoi" = "glmGamPoi - cpu",
+                                             "cpu NEBULA" = "NEBULA - cpu",
                                              "a100" = "devil - a100",
                                              "h100" = "devil - h100")) %>%
     dplyr::mutate(Measure = "observed")
@@ -256,6 +259,128 @@ predict_memory_results = function(results) {
 
     }) %>% do.call("bind_rows", .)
   }) %>% do.call("bind_rows", .)
+}
+
+memory_comp_v2 = function(results, ratio=FALSE) {
+  
+  if (!isFALSE(ratio)) {
+    df = results %>%
+      dplyr::group_by(n_genes, n_cells, n_cell_types, model_name,Measure) %>%
+      dplyr::summarise(y = mean(memory)) %>%
+      dplyr::group_by(n_genes, n_cells, n_cell_types) %>%
+      dplyr::mutate(y = y / y[model_name == ratio]) %>%
+      dplyr::group_by(n_genes, n_cells) %>%
+      dplyr::mutate(is_observed =Measure[model_name == ratio] == "observed") %>%
+      dplyr::mutate(Measure = if_else(is_observed,Measure, "predicted"))
+    
+    p = df %>% 
+      ggplot(mapping = aes(x = as.factor(n_genes), y = y, col = model_name, fill=model_name)) +
+      geom_bar(position = position_dodge(), stat = "identity", col="black") +
+      #geom_point() +
+      #geom_line() +
+      #ggh4x::facet_nested(~"Number of genes"+n_genes) +
+      ggh4x::facet_nested(~"Number of cells"+n_cells, scales = "free_y", shrink = T, independent = "y") +
+      theme_bw()
+  } else {
+    df = results %>%
+      dplyr::group_by(n_genes, n_cells, n_cell_types, model_name) %>%
+      dplyr::mutate(y = mean(memory), sd =sd(memory)) %>%
+      dplyr::select(n_genes, n_cells, n_cell_types, model_name, y, sd,Measure) %>%
+      dplyr::distinct()
+    
+    p = df %>% 
+      ggplot(mapping = aes(x = as.factor(n_genes), y = y, col = model_name, fill=model_name, ymin=y-sd, ymax=y+sd)) +
+      geom_bar(position = position_dodge(), stat = "identity", col="black") +
+      ggh4x::facet_nested(~"Number of cells"+n_cells, scales = "free_y", shrink = T, independent = "y") +
+      scale_y_sqrt() +
+      theme_bw()
+  }
+  
+  y_name = ifelse(isFALSE(ratio), "Memory (GB)", paste0("Relative memory (vs. ", ratio, ")"))
+  
+  p +
+    theme_bw() +
+    labs(
+      x = "Number of Genes",
+      y = y_name,
+      color = "Model - Device",
+      fill = "Model - Device"
+    ) +
+    theme(
+      strip.text = element_text(face = "bold"),
+      strip.background = element_rect(fill = "gray90"),
+      legend.position = "bottom",
+      legend.title = element_text(face = "bold"),
+      panel.grid.minor = element_blank()
+    ) +
+    scale_fill_manual(values = method_colors) +
+    scale_color_manual(values = method_colors) +
+    guides(
+      fill = guide_legend(order = 1),
+      col = guide_legend(order = 1)
+    )
+}
+
+time_comp_v2 = function(results, ratio = FALSE) {
+  
+  if (!isFALSE(ratio)) {
+    df = results %>%
+      dplyr::group_by(n_genes, n_cells, n_cell_types, model_name,Measure) %>%
+      dplyr::summarise(y = mean(time)) %>%
+      dplyr::group_by(n_genes, n_cells, n_cell_types) %>%
+      dplyr::mutate(y = y[model_name == ratio] / y) %>%
+      dplyr::group_by(n_genes, n_cells) %>%
+      dplyr::mutate(is_observed =Measure[model_name == ratio] == "observed") %>%
+      dplyr::mutate(Measure = if_else(is_observed,Measure, "predicted"))
+    
+    p = df %>% 
+      ggplot(mapping = aes(x = as.factor(n_genes), y = y, col = model_name, fill=model_name)) +
+      geom_bar(position = position_dodge(), stat = "identity", col="black") +
+      #geom_point() +
+      #geom_line() +
+      #ggh4x::facet_nested(~"Number of genes"+n_genes) +
+      ggh4x::facet_nested(~"Number of cells"+n_cells, scales = "free_y", shrink = T, independent = "y") +
+      #scale_y_continuous(transform = "log10") +
+      theme_bw()
+  } else {
+    df = results %>%
+      dplyr::group_by(n_genes, n_cells, n_cell_types, model_name) %>%
+      dplyr::mutate(y = mean(time), sd =sd(time)) %>%
+      dplyr::select(n_genes, n_cells, n_cell_types, model_name, y, sd,Measure) %>%
+      dplyr::distinct()
+    
+    p = df %>% 
+      ggplot(mapping = aes(x = as.factor(n_genes), y = y, col = model_name, fill=model_name, ymin=y-sd, ymax=y+sd)) +
+      geom_bar(position = position_dodge(), stat = "identity", col="black") +
+      ggh4x::facet_nested(~"Number of cells"+n_cells, scales = "free_y", shrink = T, independent = "y") +
+      scale_y_sqrt() +
+      theme_bw()
+  }
+  
+  y_name = ifelse(isFALSE(ratio), "Runtime (seconds)", paste0("Speedup (vs. ", ratio, ")"))
+  
+  p +
+    theme_bw() +
+    labs(
+      x = "Number of Genes",
+      y = y_name,
+      color = "Model - Device",
+      fill = "Model - Device"
+    ) +
+    theme(
+      strip.text = element_text(face = "bold"),
+      strip.background = element_rect(fill = "gray90"),
+      legend.position = "bottom",
+      legend.title = element_text(face = "bold"),
+      panel.grid.minor = element_blank()
+    ) +
+    scale_fill_manual(values = method_colors) +
+    scale_color_manual(values = method_colors) +
+    guides(
+      fill = guide_legend(order = 1),
+      col = guide_legend(order = 1),
+      linetype = guide_legend(order = 2, override.aes = list(fill = rep(NA, length(unique(df$Measure)))))
+    )
 }
 
 time_comparison = function(results, ratio = FALSE) {
@@ -576,27 +701,30 @@ plot_correlations_by_model <- function(fits_folder) {
   devil.res     <- readRDS(fits[grepl("cpu_devil_", fits)])
   gpu.devil.res <- readRDS(fits[grepl("gpu_devil_", fits)])
   glm.res       <- readRDS(fits[grepl("cpu_glmGam", fits)])
+  nebula.res       <- readRDS(fits[grepl("cpu_NEB", fits)])
 
   # Build long data frame
   df_lfc <- tibble(
     devil_cpu = devil.res$lfc,
     `devil - a100`   = gpu.devil.res$lfc,
-    `glmGamPoi - cpu` = glm.res$lfc
+    `glmGamPoi - cpu` = glm.res$lfc, 
+    `NEBULA - cpu` = nebula.res$lfc
   ) %>%
     pivot_longer(
-      cols = c(`devil - a100`, `glmGamPoi - cpu`),
+      cols = c(`devil - a100`, `glmGamPoi - cpu`, `NEBULA - cpu`),
       names_to = "model",
       values_to = "estimate"
     ) %>%
     mutate(metric = "LFC")
 
   df_theta <- tibble(
-    devil_cpu = devil.res$theta,
-    `devil - a100`   = gpu.devil.res$theta,
-    `glmGamPoi - cpu` = glm.res$theta
+    devil_cpu = 1 / devil.res$theta,
+    `devil - a100`   = 1 / gpu.devil.res$theta,
+    `glmGamPoi - cpu` = 1 / glm.res$theta,
+    `NEBULA - cpu` = 1 / nebula.res$theta
   ) %>%
     pivot_longer(
-      cols = c(`devil - a100`, `glmGamPoi - cpu`),
+      cols = c(`devil - a100`, `glmGamPoi - cpu`, `NEBULA - cpu`),
       names_to = "model",
       values_to = "estimate"
     ) %>%
@@ -605,35 +733,38 @@ plot_correlations_by_model <- function(fits_folder) {
   df_pvalue <- tibble(
     devil_cpu = devil.res$adj_pval,
     `devil - a100`   = gpu.devil.res$adj_pval,
-    `glmGamPoi - cpu` = glm.res$adj_pval
+    `glmGamPoi - cpu` = glm.res$adj_pval,
+    `NEBULA - cpu` = nebula.res$adj_pval
   ) %>%
     pivot_longer(
-      cols = c(`devil - a100`, `glmGamPoi - cpu`),
+      cols = c(`devil - a100`, `glmGamPoi - cpu`, `NEBULA - cpu`),
       names_to = "model",
       values_to = "estimate"
     ) %>%
     mutate(metric = "p-adj")
+  
+  df_pvalue$devil_cpu = -log10(df_pvalue$devil_cpu + 1e-300)
+  df_pvalue$estimate = -log10(df_pvalue$estimate + 1e-300)
+  df_pvalue$metric = "-log10(p-adj)"
 
   df_all <- bind_rows(df_lfc, df_theta, df_pvalue) %>%
     mutate(
-      metric = factor(metric, levels = c("LFC", "Theta", "p-adj")),
-      model  = factor(model, levels = c("devil - a100", "glmGamPoi - cpu"))
-    ) %>%
-    filter(
-      between(devil_cpu,  -10, 10),
-      between(estimate, -10, 10)
-    )
-
-  # Plot
+      metric = factor(metric, levels = c("LFC", "Theta", "-log10(p-adj)")),
+      model  = factor(model, levels = c("devil - a100", "glmGamPoi - cpu", "NEBULA - cpu"))
+    ) %>% 
+    dplyr::filter(!(metric == "LFC" & abs(estimate) > 10))
+  
   p <- df_all %>%
     ggplot(aes(x = devil_cpu, y = estimate, colour = model)) +
     geom_point(size = 0.8) +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", linewidth = 0.4) +
     ggpubr::stat_cor(
-      aes(colour = model),
+      #aes(colour = model),
+      colour = "black",
       method = "pearson"
     ) +
-    facet_wrap(~ metric, nrow = 1, scales = "free") +
+    facet_wrap(model ~ metric, nrow = 3, scales = "free") +
+    #facet_grid(model ~ metric, scales = "free") +
     scale_colour_manual(
       name = "Model",
       values = method_colors
@@ -643,8 +774,30 @@ plot_correlations_by_model <- function(fits_folder) {
       y = "Other model estimate"
     ) +
     theme_bw()
-
+  
   p
+
+  # # Plot
+  # p <- df_all %>%
+  #   ggplot(aes(x = devil_cpu, y = estimate, colour = model)) +
+  #   geom_point(size = 0.8) +
+  #   geom_abline(slope = 1, intercept = 0, linetype = "dashed", linewidth = 0.4) +
+  #   ggpubr::stat_cor(
+  #     aes(colour = model),
+  #     method = "pearson"
+  #   ) +
+  #   facet_wrap(~ metric, nrow = 1, scales = "free") +
+  #   scale_colour_manual(
+  #     name = "Model",
+  #     values = method_colors
+  #   ) +
+  #   labs(
+  #     x = expression(paste("devil-CPU estimate")),
+  #     y = "Other model estimate"
+  #   ) +
+  #   theme_bw()
+  # 
+  # p
 }
 
 
@@ -849,7 +1002,7 @@ plot_upset <- function(fits_folder, lfc_cut, pval_cut) {
 plot_venn = function(fits_folder, lfc_cut, pval_cut) {
   fits <- list.files(fits_folder, full.names = T)
 
-  fits = fits[grepl("cpu_devil_", fits) | grepl("gpu_devil_", fits) | grepl("glmGamPoi", fits)]
+  fits = fits[grepl("cpu_devil_", fits) | grepl("gpu_devil_", fits) | grepl("glmGamPoi", fits) | grepl("NEBULA", fits)]
   res <- lapply(fits, function(f) {
     info = unlist(strsplit(unlist(strsplit(f, "fits//"))[2], "_"))
     name = paste(info[1], info[2])
@@ -866,11 +1019,12 @@ plot_venn = function(fits_folder, lfc_cut, pval_cut) {
     if (grepl("cpu_devil", f)) return("devil - cpu")
     if (grepl("cpu_glm", f)) return("glmGamPoi - cpu")
     if (grepl("gpu_devil", f)) return("devil - a100")
+    if (grepl("NEBULA", f)) return("NEBULA - cpu")
   }) %>% unlist()
 
   names(res) = fit_names
   library(ggVennDiagram)
-  ggVennDiagram(res, set_color = method_colors[fit_names], label_alpha = 0) +
+  ggVennDiagram(res, set_color = method_colors[fit_names], label_alpha = 0, label = "count") +
     scale_x_continuous(expand = expansion(mult = .2)) +
     scale_fill_gradient(low="white",high = "gray80") +
     theme(legend.position = "none")

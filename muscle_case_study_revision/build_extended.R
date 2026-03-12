@@ -13,7 +13,8 @@ tissue_plot = readRDS("results/MuscleRNA/per_contrast_vector_analysis/full/age_t
 umaps = readRDS("results/MuscleRNA/per_contrast_vector_analysis/full/age_type1/umaps.RDS")
 
 bar_venn_plot = bar_venn_plot +
-  guides(fill = guide_legend(nrow = 4))
+  guides(fill = guide_legend(nrow = 7)) +
+  theme(legend.position = "right")
 
 umap_glm_private = umaps$`glmGamPoi private` +
   scale_color_manual(values = c("Old - Type I" = "goldenrod3", "Young - Type I" = "#483D8B")) +
@@ -53,9 +54,16 @@ D#EEEE
 D#EEEE
 "
 
+des = "
+AAAAAAAABBBB
+AAAAAAAABBBB
+AAAAAAAACCCC
+#DDDEEEEEEEE
+#DDDEEEEEEEE
+"
+
 umaps = umap_glm_private + umap_glm_devil_shared + 
   plot_layout(ncol = 2, guides = "collect")
-
 
 p = patchwork::free(hm) + 
   patchwork::free(tissue_plot) + patchwork::free(bar_plot_gsea) +
@@ -66,3 +74,4 @@ p = patchwork::free(hm) +
   theme(text = element_text(size = 12), plot.tag = element_text(face = "bold"))
 p
 ggsave("figures/extended.pdf", plot = p, width = 16, height = 12, units = "in")
+ggsave("figures/extended.png", plot = p, width = 16, height = 12, units = "in", dpi = 450)
