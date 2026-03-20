@@ -215,7 +215,7 @@ ggsave(filename = paste0("all_figures/scaling_and_sim/supp_scaling_",dataset_nam
 
 
 ## All datasets ####
-author = "hsc"
+author = "yazar"
 for (author in c("hsc", "kumar", "yazar", "bca")) {
 
   qq20 = readRDS(file.path("de_analysis/nullpower/figures/RDS",author,"qq20.rds")) +

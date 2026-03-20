@@ -36,6 +36,8 @@ for (dataset_name in c("MacaqueBrain", "baronPancreas")) {
   # pC <- time_comparison(time_results, ratio = "glmGamPoi - cpu")
   # pD <- memory_comparison(mem_results, ratio = "devil - cpu")
   
+  time_comp_v2(time_results%>% dplyr::filter(n_cells == 1e06)) + memory_comp_v2(mem_results %>% dplyr::filter(n_cells == 1e06))
+  
   pA <- time_comp_v2(time_results)
   pB <- memory_comp_v2(mem_results)
   pC <- time_comp_v2(time_results, ratio = "NEBULA - cpu") + scale_y_sqrt()
