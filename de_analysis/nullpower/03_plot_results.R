@@ -108,8 +108,15 @@ plot_timing = function(a, methods, ratio = NULL) {
 
 get_idx_result = function(author, idx) {
   fp = paste0("results/",author,"_",idx,".rds")
-  if (file.exists(fp)) return(readRDS(fp))
-  dplyr::tibble()
+  res = dplyr::tibble()
+  if (file.exists(fp)) {
+    res = dplyr::bind_rows(res, readRDS(fp))
+  } else {
+    return(res)
+  }
+  fp = paste0("results/",author,"_",idx,"_dupCorr.rds")
+  if (file.exists(fp)) res = dplyr::bind_rows(res, readRDS(fp) %>% dplyr::mutate(gene = paste0("Gene", row_number())))
+  res
 }
 
 get_result = function(author, is.pb, n_patients = 4, ngenes = 50, cell_index = 1, i = 2, stop_on_error = T) {
@@ -145,7 +152,7 @@ get_all_results = function(author) {
     df$name[mask] = DEVIL_NAME_MAPPING[i]
   }
 
-  dplyr::left_join(df, param_grid, by = "idx")
+  dplyr::left_join(df, param_grid, by = "idx") %>% dplyr::select(!lfc)
 }
 
 plot_MCCs_boxplots = function(a, cellwise_methods, patientwise_methods) {
@@ -218,6 +225,130 @@ plot_FDRs_boxplots = function(a, cellwise_methods, patientwise_methods) {
     theme(legend.position = "none")
 }
 
+plot_qq_null_pvals_v2 = function(author,
+                                 cellwise_methods,
+                                 patientwise_methods,
+                                 n.points = NULL,
+                                 n.patients = NULL,
+                                 cell.index = NULL) {
+  
+  library(dplyr)
+  library(ggplot2)
+  library(tidyr)
+  
+  df = get_all_results(author)
+  
+  if (!is.null(n.patients)) df = df %>% filter(n.sample == n.patients)
+  if (!is.null(cell.index)) df = df %>% filter(int.ct == cell.index)
+  
+  df = bind_rows(
+    df %>% filter(is.pb, name %in% patientwise_methods),
+    df %>% filter(!is.pb, name %in% cellwise_methods)
+  )
+  
+  df = df %>%
+    mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
+    mutate(name = if_else(grepl("Nebula", name), "NEBULA", name)) %>%
+    dplyr::filter(!is_de)
+  
+  # Optional subsampling per simulation
+  if (!is.null(n.points)) {
+    df = df %>%
+      dplyr::group_by(name, idx) %>%
+      dplyr::sample_n(n.points) %>%
+      dplyr::ungroup()
+  }
+  
+  compute_lambda <- function(pvals) {
+    chisq <- qchisq(1 - pvals, df = 1)
+    median(chisq, na.rm = TRUE) / qchisq(0.5, df = 1)
+  }
+  
+  qq_df <- df %>%
+    group_by(name, is.pb, idx) %>%
+    arrange(p_val, .by_group = TRUE) %>%
+    mutate(
+      rank = row_number(),
+      expected = rank / (n() + 1),
+      x = -log10(expected),
+      y = -log10(p_val)
+    ) %>%
+    ungroup()
+  
+  qq_summary <- qq_df %>%
+    group_by(name, is.pb, rank) %>%
+    summarise(
+      x = mean(x),
+      y = mean(y),
+      y_lower = quantile(y, 0.1, na.rm = TRUE),
+      y_upper = quantile(y, 0.9, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(is.pb = ifelse(is.pb, "Patient-wise", "Cell-wise"))
+  
+  lambda_df <- df %>%
+    group_by(name, is.pb, idx) %>%
+    summarise(lambda = compute_lambda(p_val), .groups = "drop") %>%
+    group_by(name, is.pb) %>%
+    summarise(
+      lambda = median(lambda, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      is.pb = ifelse(is.pb, "Patient-wise", "Cell-wise"),
+      label = sprintf("%.2f", lambda)
+    )
+  
+  ann_df = qq_summary %>% 
+    dplyr::group_by(name, is.pb) %>% 
+    dplyr::summarise(x = quantile(x, .8, na.rm = T), y = quantile(y, .8, na.rm = T)) %>% 
+    dplyr::left_join(lambda_df)
+  
+  ggplot(qq_summary, aes(x = x, y = y, colour = name)) +
+    geom_line(linewidth = 1.2) +
+    geom_abline(
+      slope = 1, intercept = 0,
+      linetype = 2,
+      linewidth = 0.5,
+      colour = "black"
+    ) +
+    
+    scale_color_manual(values = MY_PALETTE) +
+    scale_fill_manual(values = MY_PALETTE) +
+    
+    theme_bw() +
+    coord_cartesian(ylim = c(0, 5), expand = FALSE) +
+    
+    facet_wrap(~is.pb, ncol = 1) +
+    
+    labs(
+      x = expression(Expected~-log[10](italic(p))),
+      y = expression(Observed~-log[10](italic(p))),
+      color = "Model"
+    ) +
+    
+    theme(
+      panel.grid.minor = element_blank(),
+      panel.grid.major = element_line(color = "grey90"),
+      strip.background = element_rect(fill = "grey95"),
+      strip.text = element_text(face = "bold")
+    ) + 
+    ggrepel::geom_label_repel(
+      data = ann_df,
+      aes(x = x, y = y, label = label, color = name),
+      inherit.aes = FALSE,
+      size = 3,
+      box.padding = 0.5,
+      point.padding = 0.3,
+      segment.size = 0.3,
+      min.segment.length = 0,
+      max.overlaps = Inf,
+      direction = "both",
+      show.legend = FALSE
+    ) + labs(caption = "Labels indicate λ‐value")
+}
+
+
 plot_qq_null_pvals = function(author,
                               cellwise_methods, patientwise_methods, n.points,
                               n.patients = NULL, cell.index = NULL) {
@@ -226,7 +357,7 @@ plot_qq_null_pvals = function(author,
 
   if (!is.null(n.patients)) df = df %>% dplyr::filter(n.sample == n.patients)
   if (!is.null(cell.index)) df = df %>% dplyr::filter(int.ct == cell.index)
-
+  
   df = dplyr::bind_rows(
     df %>% dplyr::filter(is.pb, name %in% patientwise_methods),
     df %>% dplyr::filter(!is.pb, name %in% cellwise_methods)
@@ -243,6 +374,81 @@ plot_qq_null_pvals = function(author,
       group_by(name) %>%
       dplyr::sample_n(n.points)
   }
+  
+  compute_qq_band <- function(n, alpha = 0.05) {
+    tibble::tibble(
+      rank = 1:n,
+      expected = rank / (n + 1),
+      
+      lower = qbeta(alpha / 2, rank, n + 1 - rank),
+      upper = qbeta(1 - alpha / 2, rank, n + 1 - rank)
+    ) %>%
+      dplyr::mutate(
+        x = -log10(expected),
+        ymin = -log10(upper),  # note inversion
+        ymax = -log10(lower)
+      )
+  }
+  
+  compute_lambda <- function(pvals) {
+    chisq <- qchisq(1 - pvals, df = 1)
+    median(chisq, na.rm = TRUE) / qchisq(0.5, df = 1)
+  }
+  
+  lambda_df <- df %>%
+    group_by(name, is.pb) %>%
+    summarise(
+      lambda = compute_lambda(p_val),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      is.pb = ifelse(is.pb, "Patient-wise", "Cell-wise"),
+      label = sprintf("%s (λ=%.2f)", name, lambda)
+    )
+  
+  band_df <- df %>%
+    dplyr::mutate(is.pb = ifelse(is.pb, "Patient-wise", "Cell-wise")) %>%
+    dplyr::group_by(is.pb) %>%
+    dplyr::summarise(n = n(), .groups = "drop") %>%
+    dplyr::group_by(is.pb) %>%
+    do({
+      compute_qq_band(.$n)
+    }) %>%
+    ungroup()
+  
+  df %>%
+    group_by(name) %>%
+    arrange(p_val, .by_group = TRUE) %>%
+    dplyr::mutate(is.pb = ifelse(is.pb, "Patient-wise", "Cell-wise")) %>%
+    mutate(
+      rank = row_number(),
+      expected = rank / (n() + 1),
+      x = -log10(expected),
+      y = -log10(p_val)
+    ) %>%
+    ungroup() %>%
+    ggplot(aes(x = x, y = y, colour = name)) +
+    
+    geom_ribbon(
+      data = band_df,
+      aes(x = x, ymin = ymin, ymax = ymax),
+      inherit.aes = FALSE,
+      fill = "grey80",
+      alpha = 0.5
+    ) +
+    #geom_point(alpha = 0.05, size = 0.1, show.legend = FALSE) +
+    #geom_smooth(method = "loess", se = FALSE, linewidth = 1.5) +
+    geom_line() +
+    geom_abline(slope = 1, intercept = 0, linetype = 2, linewidth = 0.5, colour = "black") +
+    scale_color_manual(values = MY_PALETTE) +
+    theme_bw() +
+    coord_cartesian(ylim = c(0, 3), expand = FALSE) +
+    facet_wrap(~is.pb, ncol = 1) +
+    labs(
+      x = expression(Expected~-log[10](italic(p))),
+      y = expression(Observed~-log[10](italic(p)))
+    ) +
+    labs(color = "Model")
 
   p <- df %>%
     group_by(name, idx) %>%
@@ -267,7 +473,7 @@ plot_qq_null_pvals = function(author,
       x = expression(Expected~-log[10](italic(p))),
       y = expression(Observed~-log[10](italic(p)))
     ) +
-    labs(color = "Model")
+    labs(color = "Model")  + labs(caption = "Labels indicate AUC")
   p
 }
 
@@ -337,10 +543,13 @@ plot_power_curve = function(author,
 }
 
 plot_power_curve_faceted = function(author,
-                                    cellwise_methods, patientwise_methods,
+                                    cellwise_methods, 
+                                    patientwise_methods,
                                     n.points,
-                                    n.patients = NULL, cell.index = NULL) {
-
+                                    n.patients = NULL, 
+                                    cell.index = NULL, 
+                                    fdr_cutoff = 1.0) {
+  
   df = get_all_results(author)
   df = df %>% na.omit()
   if (!is.null(n.patients)) df = df %>% dplyr::filter(n.sample == n.patients)
@@ -358,12 +567,14 @@ plot_power_curve_faceted = function(author,
   df = df %>%
     # dplyr::mutate(name = if_else(grepl("devil", name), "devil", name)) %>%
     dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
-    dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name))
+    dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name)) %>% 
+    dplyr::ungroup()
 
   # TPR vs FDR curve
   # Prep cobra object
+  
   pval = df %>%
-    dplyr::select(gene, name, p_val, idx) %>%
+    dplyr::select(gene, name, p_val, idx) %>% 
     tidyr::pivot_wider(values_from = p_val, names_from = name) %>%
     dplyr::arrange(gene) %>%
     dplyr::select(!gene) %>%
@@ -404,19 +615,126 @@ plot_power_curve_faceted = function(author,
     padj = padj[idxs,]
     truth = truth[idxs,]
   }
-
+  
+  pval[pval > 1] <- 1
   cobradata = iCOBRA::COBRAData(pval, truth = truth, padj = padj)
   cobraperf <- calculate_performance(cobradata, binary_truth = "is_de", splv = "is.pb")
   cobraplot <- prepare_data_for_plot(cobraperf, colorscheme = "Dark2", facetted = TRUE)
   cobraplot@fdrtprcurve = cobraplot@fdrtprcurve %>%
     dplyr::filter(splitval != "overall") %>%
     dplyr::mutate(splitval = ifelse(grepl("Cell-wise", splitval), "Cell-wise", "Patient-wise"))
+  
+  # Prepare metrics
+  curve_df <- cobraplot@fdrtprcurve %>%
+    filter(splitval != "overall") %>%
+    mutate(
+      splitval = ifelse(grepl("Cell-wise", splitval),
+                        "Cell-wise", "Patient-wise"),
+      highlight = method == "devil"
+    )
+  
+  metrics_df <- curve_df %>%
+    dplyr::arrange(method, splitval, FDR) %>%
+    group_by(method, splitval) %>%
+    summarise(
+      pAUC = {
+        df_sub <- filter(cur_data(), FDR <= fdr_cutoff)
+        if (nrow(df_sub) < 2) {
+          NA_real_ 
+        } else {
+          sum(diff(df_sub$FDR) *
+                (head(df_sub$TPR, -1) + tail(df_sub$TPR, -1)) / 2)  
+        }
+        
+      },
+      
+      x = median(FDR, na.rm = TRUE), 
+      y = median(TPR, na.rm = TRUE),
+      
+      TPR_at_FDR = {
+        approx(
+          x = FDR,
+          y = TPR,
+          xout = fdr_cutoff,
+          ties = "ordered"
+        )$y
+      },
+      .groups = "drop"
+    )
+  
+  # Labels
+  ann_df <- metrics_df %>%
+    dplyr::group_by(splitval) %>%
+    dplyr::arrange(splitval, dplyr::desc(pAUC)) %>%
+    dplyr::mutate(
+      rank = row_number(),
+      label = sprintf("%.3f", pAUC)  # aligned text
+    ) %>%
+    dplyr::ungroup()
+  
+  # table_xmin <- 0.925
+  # table_xmax <- 1.0
+  # table_ymin <- 0
+  # table_ymax <- 0.5
+  # 
+  # metrics_df <- metrics_df %>%
+  #   dplyr::group_by(splitval) %>%
+  #   dplyr::mutate(
+  #     y = seq(table_ymax - 0.1, 0.05, length.out = dplyr::n())  # evenly spaced
+  #   ) %>%
+  #   dplyr::ungroup()
 
+  # main_plot = plot_fdrtprcurve(cobraplot, plottype = "curve") +
+  #   scale_color_manual(values = MY_PALETTE) +
+  #   scale_fill_manual(values = MY_PALETTE) +
+  #   theme_bw() +
+  #   labs(color = "Model") +
+  #   geom_rect(mapping = aes(xmin = 0.9, xmax = 1, ymin = 0, ymax = 0.5), fill = "white", inherit.aes = F, show.legend = F, col = "gray30") +
+  #   geom_text(metrics_df, mapping = aes(x = x, y = y, col = method, label = round(pAUC, 3)), show.legend = F)
+  
   plot_fdrtprcurve(cobraplot, plottype = "curve") +
     scale_color_manual(values = MY_PALETTE) +
     scale_fill_manual(values = MY_PALETTE) +
     theme_bw() +
-    labs(color = "Model")
+    labs(color = "Model") +
+    ggrepel::geom_label_repel(
+      data = ann_df,
+      aes(x = x, y = y, label = label, color = method),
+      inherit.aes = FALSE,
+      size = 3,
+      box.padding = 0.5,
+      point.padding = 0.3,
+      segment.size = 0.3,
+      min.segment.length = 0,
+      max.overlaps = Inf,
+      direction = "both",
+      show.legend = FALSE
+    )
+    
+    # geom_rect(
+    #   data = distinct(metrics_df, splitval),
+    #   aes(xmin = table_xmin, xmax = table_xmax,
+    #       ymin = table_ymin, ymax = table_ymax),
+    #   inherit.aes = FALSE,
+    #   fill = "white",
+    #   color = "gray40"
+    # ) +
+    # 
+    # geom_text(
+    #   data = distinct(metrics_df, splitval),
+    #   aes(x = table_xmin + 0.01, y = table_ymax - 0.03, label = "pAUC"),
+    #   inherit.aes = FALSE,
+    #   hjust = 0
+    # ) +
+    # 
+    # # table rows
+    # geom_text(
+    #   data = metrics_df,
+    #   aes(x = table_xmin + 0.01, y = y, label = label, color = method),
+    #   inherit.aes = FALSE,
+    #   hjust = 0,
+    #   show.legend = FALSE
+    # )
 }
 
 plot_ks <- function(author,
@@ -615,18 +933,20 @@ rename_single_facet <- function(p, new_label) {
 # PANELS FOR MAIN AND EXT ####
 set.seed(12345)
 
-qq_plot_hsc = plot_qq_null_pvals(author = "hsc", n.points = 10000,
-                                 cellwise_methods = method_cellwise_main,
-                                 patientwise_methods = method_patientwise_main,
-                                 n.patients = 20,
-                                 cell.index = NULL)
+qq_plot_hsc = plot_qq_null_pvals_v2(author = "hsc", 
+                                    n.points = NULL,
+                                    cellwise_methods = method_cellwise_main,
+                                    patientwise_methods = method_patientwise_main,
+                                    n.patients = 20,
+                                    cell.index = NULL)
 
 power_curve = plot_power_curve_faceted(author = "hsc",
                                        cellwise_methods = method_cellwise_main,
                                        patientwise_methods = method_patientwise_main,
-                                       n.points = 10000,
+                                       n.points = NULL,
                                        n.patients = 20,
-                                       cell.index = NULL)
+                                       cell.index = NULL, 
+                                       fdr_cutoff = 1) + labs(caption = "Labels indicate AUC")
 
 MCC_boxplot = plot_MCCs_boxplots("hsc", method_cellwise_main, method_patientwise_main)
 FDR_boxplot = plot_FDRs_boxplots("hsc", method_cellwise_main, method_patientwise_main) +
@@ -647,7 +967,7 @@ saveRDS(ecfd_ks_plot, "figures/RDS/main/ecfd_ks_plot.rds")
 saveRDS(ptiming_ratio, "figures/RDS/main/ptiming_ratio.rds")
 
 # SUPP FIGURE ####
-a = "yazar"
+a = "hsc"
 for (a in c("hsc", "bca", "yazar", "kumar")) {
   set.seed(12345)
 
@@ -655,21 +975,22 @@ for (a in c("hsc", "bca", "yazar", "kumar")) {
   FDR_box = plot_FDRs_boxplots(a, method_cellwise_supp, method_patientwise_supp) +
     geom_hline(yintercept = .05, linetype = "dashed")
 
-  qq20 = plot_qq_null_pvals(a, method_cellwise_supp, method_patientwise_supp,
-                            n.points = 10000, n.patients = 20, cell.index = NULL)
-  qq4 = plot_qq_null_pvals(a, method_cellwise_supp, method_patientwise_supp,
-                           n.points = 10000, n.patients = 4, cell.index = NULL)
+  qq20 = plot_qq_null_pvals_v2(a, method_cellwise_supp, method_patientwise_supp,
+                               n.patients = 20, cell.index = NULL)
+  qq4 = plot_qq_null_pvals_v2(a, method_cellwise_supp, method_patientwise_supp,
+                              n.patients = 4, cell.index = NULL)
 
   power_curve_4 = plot_power_curve_faceted(author = a,
                                            cellwise_methods = method_cellwise_supp,
                                            patientwise_methods = method_patientwise_supp,
-                                           n.patients = 4, n.points = 10000,
+                                           n.patients = 4, 
+                                           n.points = NULL,
                                            cell.index = NULL)
 
   power_curve_20 = plot_power_curve_faceted(author = a,
                                             cellwise_methods = method_cellwise_supp,
                                             patientwise_methods = method_patientwise_supp,
-                                            n.patients = 20, n.points = 10000,
+                                            n.patients = 20, n.points = NULL,
                                             cell.index = NULL)
 
   ecfd_ks_plot = plot_ks(author = a,

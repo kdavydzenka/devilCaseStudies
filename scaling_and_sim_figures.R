@@ -316,7 +316,7 @@ AAAAA
 #BBB#
 "
 
-final_plot = pA + pB + 
+final_plot = pA + free(pB) + 
   plot_layout(design = des) + plot_annotation(tag_levels = "A") & MY_THEME
 final_plot
 
