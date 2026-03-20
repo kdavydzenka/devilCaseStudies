@@ -32,7 +32,7 @@ pD = readRDS("de_analysis/nullpower/figures/RDS/main/power_curve.rds") +
   MY_THEME +
   theme(legend.position = "none")
 
-pCD = pC + pD + plot_layout(guides = "collect")
+pCD = (pC + labs(caption = expression("Labels indicate " * lambda * "-value"))) + pD + plot_layout(guides = "collect")
 
 pE = readRDS("de_analysis/nullpower/figures/RDS/main/MCC_boxplot.rds") +
   scale_x_discrete(limits = rev) +
@@ -219,9 +219,9 @@ author = "yazar"
 for (author in c("hsc", "kumar", "yazar", "bca")) {
 
   qq20 = readRDS(file.path("de_analysis/nullpower/figures/RDS",author,"qq20.rds")) +
-    facet_wrap(~is.pb) + ggtitle("20 patients")
+    facet_wrap(~is.pb) + ggtitle("20 patients") + labs(caption = expression("Labels indicate " * lambda * "-value"))
   qq4 = readRDS(file.path("de_analysis/nullpower/figures/RDS",author,"qq4.rds")) +
-    facet_wrap(~is.pb)+ ggtitle("4 patients")
+    facet_wrap(~is.pb)+ ggtitle("4 patients") + labs(caption = expression("Labels indicate " * lambda * "-value"))
 
   qq20@layers[[2]]$aes_params$linewidth = .8
   qq4@layers[[2]]$aes_params$linewidth = .8
@@ -302,4 +302,23 @@ EEEE
   ggsave(paste0("all_figures/scaling_and_sim/supp_sim_",author,".pdf"), final_plot, width = 8 * 1.5, height = 11 * 1.5, dpi = 600, units = "in")
 }
 
-# Clean supplementary for QQ plots and power
+# MOM v MLE comparison ####
+IMG_FOLDER = "de_analysis/nullpower/figures/RDS/devil_comparison/"
+
+pA = readRDS("de_analysis/nullpower/figures/RDS/devil_comparison/MCC_box.rds") + theme(legend.position = "none")
+pB = readRDS("de_analysis/nullpower/figures/RDS/devil_comparison/ptiming_ratio.rds") + theme(legend.position = "bottom")
+
+des = "
+AAAAA
+AAAAA
+AAAAA
+#BBB#
+#BBB#
+"
+
+final_plot = pA + pB + 
+  plot_layout(design = des) + plot_annotation(tag_levels = "A") & MY_THEME
+final_plot
+
+ggsave(paste0("all_figures/scaling_and_sim/supp_devil_comparison.png"), final_plot, width = 8, height = 8, dpi = 600, units = "in")
+ggsave(paste0("all_figures/scaling_and_sim/supp_devil_comparison.pdf"), final_plot, width = 8, height = 8, units = "in")
