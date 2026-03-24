@@ -16,7 +16,7 @@ res <- dplyr::tibble()
 authors = c("bca", "hsc", "yazar", "kumar")
 
 a = "hsc"
-idx = 327
+idx = 1
 
 for (a in authors) {
   grid = readRDS(paste0("data/",a,"_param_grid.rds"))
@@ -48,8 +48,8 @@ for (a in authors) {
     }
     
     r <- d %>% 
+      dplyr::select(p_val, gene, is_de, name) %>% 
       na.omit() %>% 
-      dplyr::select(lfc, p_val, gene, is_de, name) %>% 
       dplyr::group_by(name) %>% 
       dplyr::mutate(p_val = ifelse(is.na(p_val), 1, p_val)) %>% 
       dplyr::mutate(padj = p.adjust(p_val, "BH")) %>%
@@ -86,30 +86,22 @@ for (a in authors) {
   }
 }
 
-ggplot(res, aes(x = name, y = MCC, col = name)) +
-  geom_boxplot() +
-  theme_bw() +
-  facet_grid(author~is.pb+patients)
+summary_sim_ncells_df = lapply(c("hsc", "kumar", "yazar", "bca"), function(a) {
+  print(a)
+  param_grid = readRDS(paste0("data/",a,"_param_grid.rds"))
+  
+  lapply(1:nrow(param_grid), function(i) {
+    if (i %% 30 == 0) print(i)
+    data = readRDS(paste0("data/", a, "_", i, ".rds"))  
+    ncells = dim(data$cnt)[2]
+    param_grid[i,] %>% dplyr::mutate(ncells = ncells, author = a) %>% dplyr::select(is.pb, n.sample, ncells, author)
+  }) %>% do.call("bind_rows", .)  
+}) %>% do.call("bind_rows", .)  
 
-ggplot(res, aes(x = name, y = FDR, col = name)) +
-  geom_boxplot() +
-  theme_bw() +
-  facet_grid(author~is.pb+patients)
-
-res %>% 
-  dplyr::filter(is.pb) %>% 
-  ggplot(mapping = aes(x = n.cells, y = MCC, col = paste0(patients, is.pb))) +
-  geom_point() +
-  facet_grid(author~name, scales = "free") +
-  theme_bw() +
-  scale_x_continuous(transform = "log10")
-
-res %>% 
-  dplyr::filter(is.pb) %>% 
-  ggplot(mapping = aes(x = n.cells, y = FDR, col = paste0(patients, is.pb))) +
-  geom_point() +
-  facet_grid(author~name, scales = "free") +
-  theme_bw() +
-  scale_x_continuous(transform = "log10")
-
+saveRDS(summary_sim_ncells_df, "final_res/summary_sim_ncells_df.rds")
 saveRDS(res, "final_res/results.rds")
+
+summary_sim_ncells_df %>% 
+  dplyr::group_by(author, n.sample) %>% 
+  dplyr::summarise(mean_cell_count = mean(ncells), min_cell_count = min(ncells), max_cell_count = max(ncells)) %>% 
+  dplyr::rename(n.patients = n.sample)

@@ -19,7 +19,8 @@ library(tidyverse)
 list.func <- list(
   deseq2.mult,
   edger.mult,
-  mast.mult,
+  #mast.mult,
+  run_MAST_DE,
   seurat_wilcox.mult,
   limma.mult,
   limma_voom_cell.mult,
@@ -27,8 +28,8 @@ list.func <- list(
   # limma_pb_dupCorr.mult,
   glmgp.cell.mult,
   nebula.mult,
-  devil.fit, 
-  devil.overdisp.new,
+  #devil.fit, 
+  #devil.overdisp.new,
   devil.overdisp.old,
   devil.overdisp.MOM
 )
@@ -43,8 +44,8 @@ method_names = c(
   # "limmaDupCorr (Pb)",
   "glmGamPoi (cell)", 
   "NEBULA", 
-  "devil (Poisson)", 
-  "devil (I-NB)", 
+  #"devil (Poisson)", 
+  #"devil (I-NB)", 
   "devil (MLE-NB)", 
   "devil (MOM-NB)"
   #, "devil (base)", "devil (mixed)", "devil (pure)"
@@ -60,6 +61,8 @@ stopifnot(length(args) >= 1)
 author <- args[1]
 stopifnot(author %in% c("bca","yazar","hsc","kumar"))
 
+# author = "yazar"
+# idx = 2
 # author = "hsc"
 # idx = 112
 # author = "bca"

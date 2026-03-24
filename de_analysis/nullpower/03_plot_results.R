@@ -348,135 +348,6 @@ plot_qq_null_pvals_v2 = function(author,
     ) + labs(caption = "Labels indicate λ‐value")
 }
 
-
-plot_qq_null_pvals = function(author,
-                              cellwise_methods, patientwise_methods, n.points,
-                              n.patients = NULL, cell.index = NULL) {
-
-  df = get_all_results(author)
-
-  if (!is.null(n.patients)) df = df %>% dplyr::filter(n.sample == n.patients)
-  if (!is.null(cell.index)) df = df %>% dplyr::filter(int.ct == cell.index)
-  
-  df = dplyr::bind_rows(
-    df %>% dplyr::filter(is.pb, name %in% patientwise_methods),
-    df %>% dplyr::filter(!is.pb, name %in% cellwise_methods)
-  )
-
-  df = df %>%
-    # dplyr::mutate(name = if_else(grepl("devil", name), "devil", name)) %>%
-    dplyr::mutate(name = if_else(grepl("glmGamPoi", name), "glmGamPoi", name)) %>%
-    dplyr::mutate(name = if_else(grepl("Nebula", name), "NEBULA", name)) %>%
-    dplyr::filter(!is_de)
-
-  if (!is.null(n.points)) {
-    df = df %>%
-      group_by(name) %>%
-      dplyr::sample_n(n.points)
-  }
-  
-  compute_qq_band <- function(n, alpha = 0.05) {
-    tibble::tibble(
-      rank = 1:n,
-      expected = rank / (n + 1),
-      
-      lower = qbeta(alpha / 2, rank, n + 1 - rank),
-      upper = qbeta(1 - alpha / 2, rank, n + 1 - rank)
-    ) %>%
-      dplyr::mutate(
-        x = -log10(expected),
-        ymin = -log10(upper),  # note inversion
-        ymax = -log10(lower)
-      )
-  }
-  
-  compute_lambda <- function(pvals) {
-    chisq <- qchisq(1 - pvals, df = 1)
-    median(chisq, na.rm = TRUE) / qchisq(0.5, df = 1)
-  }
-  
-  lambda_df <- df %>%
-    group_by(name, is.pb) %>%
-    summarise(
-      lambda = compute_lambda(p_val),
-      .groups = "drop"
-    ) %>%
-    mutate(
-      is.pb = ifelse(is.pb, "Patient-wise", "Cell-wise"),
-      label = sprintf("%s (λ=%.2f)", name, lambda)
-    )
-  
-  band_df <- df %>%
-    dplyr::mutate(is.pb = ifelse(is.pb, "Patient-wise", "Cell-wise")) %>%
-    dplyr::group_by(is.pb) %>%
-    dplyr::summarise(n = n(), .groups = "drop") %>%
-    dplyr::group_by(is.pb) %>%
-    do({
-      compute_qq_band(.$n)
-    }) %>%
-    ungroup()
-  
-  df %>%
-    group_by(name) %>%
-    arrange(p_val, .by_group = TRUE) %>%
-    dplyr::mutate(is.pb = ifelse(is.pb, "Patient-wise", "Cell-wise")) %>%
-    mutate(
-      rank = row_number(),
-      expected = rank / (n() + 1),
-      x = -log10(expected),
-      y = -log10(p_val)
-    ) %>%
-    ungroup() %>%
-    ggplot(aes(x = x, y = y, colour = name)) +
-    
-    geom_ribbon(
-      data = band_df,
-      aes(x = x, ymin = ymin, ymax = ymax),
-      inherit.aes = FALSE,
-      fill = "grey80",
-      alpha = 0.5
-    ) +
-    #geom_point(alpha = 0.05, size = 0.1, show.legend = FALSE) +
-    #geom_smooth(method = "loess", se = FALSE, linewidth = 1.5) +
-    geom_line() +
-    geom_abline(slope = 1, intercept = 0, linetype = 2, linewidth = 0.5, colour = "black") +
-    scale_color_manual(values = MY_PALETTE) +
-    theme_bw() +
-    coord_cartesian(ylim = c(0, 3), expand = FALSE) +
-    facet_wrap(~is.pb, ncol = 1) +
-    labs(
-      x = expression(Expected~-log[10](italic(p))),
-      y = expression(Observed~-log[10](italic(p)))
-    ) +
-    labs(color = "Model")
-
-  p <- df %>%
-    group_by(name, idx) %>%
-    arrange(p_val, .by_group = TRUE) %>%
-    dplyr::mutate(is.pb = ifelse(is.pb, "Patient-wise", "Cell-wise")) %>%
-    mutate(
-      rank = row_number(),
-      expected = rank / (n() + 1),
-      x = -log10(expected),
-      y = -log10(p_val)
-    ) %>%
-    ungroup() %>%
-    ggplot(aes(x = x, y = y, colour = name)) +
-    geom_point(alpha = 0.05, size = 0.1, show.legend = FALSE) +
-    geom_smooth(method = "loess", se = FALSE, linewidth = 1.5) +
-    geom_abline(slope = 1, intercept = 0, linetype = 2, linewidth = 0.5, colour = "black") +
-    scale_color_manual(values = MY_PALETTE) +
-    theme_bw() +
-    coord_cartesian(ylim = c(0, 3), expand = FALSE) +
-    facet_wrap(~is.pb, ncol = 1) +
-    labs(
-      x = expression(Expected~-log[10](italic(p))),
-      y = expression(Observed~-log[10](italic(p)))
-    ) +
-    labs(color = "Model")  + labs(caption = "Labels indicate AUC")
-  p
-}
-
 plot_power_curve = function(author,
                             methods, is.pwise = TRUE,
                             n.patients = NULL, cell.index = NULL) {
@@ -1014,3 +885,76 @@ for (a in c("hsc", "bca", "yazar", "kumar")) {
   saveRDS(ptiming, paste0("figures/RDS/",a,"/ptiming.rds"))
   saveRDS(ptiming_ratio, paste0("figures/RDS/",a,"/ptiming_ratio.rds"))
 }
+
+
+library(tidyverse)
+library(ggh4x)
+
+# 1. Define your mapping clearly in a tibble
+mapping_table <- tibble(
+  full_name = c("devil (MOM-NB)", "NEBULA", "glmGamPoi", "MAST (cell)", 
+                "Seurat (cell)", "limma (cell)", "limmaDupCorr (cell)", 
+                "edgeR (Pb)", "limma (Pb)"),
+  short_name = c("devil", "NEBULA", "glmGamPoi", "MAST", 
+                 "Seurat", "limma", "limmaDupCorr", "edgeR", "limmaPb"),
+  method_class = c("scP", "scP", "sc", "sc", 
+                   "sc", "sc", "sc", "Pb", "Pb")
+)
+
+# 2. Process the data
+df_plot <- readRDS("final_res/lambda_summary.rds") %>% 
+  dplyr::filter(name != "devil (MLE-NB)") %>%
+  # Join by the 'name' column in your RDS (assuming it matches 'full_name')
+  dplyr::left_join(mapping_table, by = c("name" = "full_name")) %>%
+  dplyr::mutate(
+    # Use the short name for the factor levels
+    short_name = factor(short_name, levels = mapping_table$short_name),
+    # Create the interaction for ggh4x/legendry
+    name_nested = interaction(short_name, method_class),
+    method_class = factor(method_class, levels = c("scP", "sc", "Pb"))
+  )
+
+# 3. Plotting
+pLambda = ggplot(df_plot, aes(x = interaction(short_name, method_class), y = lambda, color = factor(n.patients))) +
+  geom_point(position = position_dodge(width = 0.4), size = 2) +
+  scale_y_log10() +
+  geom_hline(yintercept = 1, size = 0.5) +
+  geom_hline(yintercept = c(0.5, 2), linetype = "dashed") +
+  # Use ggh4x's guide_axis_nested
+  guides(x = legendry::guide_axis_nested()) + 
+  labs(x = "", y = expression(lambda ~ " inflation factor"), color = "N patients") +
+  theme_bw() +
+  scale_color_manual(values = c("4" = "#d95f02", "20" = "#7570b3")) +
+  facet_wrap(~is.pb, nrow = 2) +
+  theme(legend.position = "bottom")
+
+# pAUC
+df_plot = readRDS("final_res/auc_summary.rds") %>% 
+  dplyr::filter(name != "devil (MLE-NB)") %>%
+  # Join by the 'name' column in your RDS (assuming it matches 'full_name')
+  dplyr::left_join(mapping_table, by = c("name" = "full_name")) %>%
+  dplyr::mutate(
+    # Use the short name for the factor levels
+    short_name = factor(short_name, levels = mapping_table$short_name),
+    # Create the interaction for ggh4x/legendry
+    name_nested = interaction(short_name, method_class),
+    method_class = factor(method_class, levels = c("scP", "sc", "Pb"))
+  )
+
+pAUC = ggplot(df_plot, aes(x = interaction(short_name, method_class), y = pAUC, color = factor(n.patients))) +
+  #geom_point(position = position_dodge(width = 0.4), size = 2) +
+  geom_boxplot() +
+  scale_y_log10() +
+  geom_hline(yintercept = 1, size = 0.5) +
+  geom_hline(yintercept = c(0.5), linetype = "dashed") +
+  # Use ggh4x's guide_axis_nested
+  guides(x = legendry::guide_axis_nested()) + 
+  labs(x = "", y = "Area under TPR-FDR curve", color = "N patients") +
+  theme_bw() +
+  scale_color_manual(values = c("4" = "#d95f02", "20" = "#7570b3")) +
+  facet_wrap(~scenario, nrow = 2) +
+  theme(legend.position = "bottom")
+pAUC
+
+saveRDS(pAUC, "figures/RDS/pAUC.rds")
+saveRDS(pLambda, "figures/RDS/pLambda.rds")

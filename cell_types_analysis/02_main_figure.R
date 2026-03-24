@@ -52,23 +52,6 @@ for (ct in unique(seurat_obj$cell_type)) {
 }
 seurat_obj$cell_type <- new_cell_type
 ground_truth <- computeGroundTruth(seurat_obj) %>% dplyr::arrange(cluster)
-# seurat_obj$cell_type <- cell_type_names_to_scMayo_names(seurat_obj$cell_type, tissue)
-# computeGroundTruth(seurat_obj) %>% dplyr::arrange(cluster)
-
-# umap_plot_seurat <- Seurat::DimPlot(
-#   seurat_obj,
-#   reduction = "umap",
-#   group.by = "seurat_clusters",
-#   label = T,
-#   repel = T) +
-#   ggtitle("") +
-#   scale_color_manual(values = my_large_palette) +
-#   theme(axis.line=element_blank(),axis.text.x=element_blank(),
-#         axis.text.y=element_blank(),axis.ticks=element_blank(),
-#         axis.title.x=element_blank(),
-#         axis.title.y=element_blank(),legend.position="none",
-#         panel.background=element_blank(),panel.border=element_blank(),panel.grid.major=element_blank(),
-#         panel.grid.minor=element_blank(),plot.background=element_blank())
 
 data_umap <- dplyr::tibble(
   umap1=seurat_obj@reductions$umap@cell.embeddings[,1],

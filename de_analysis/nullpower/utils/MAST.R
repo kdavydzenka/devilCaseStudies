@@ -1,6 +1,64 @@
 
 library(MAST)
 library(Matrix)
+library(edgeR)
+
+run_MAST_DE <- function(counts, df, tx_col = "tx_cell") {
+  
+  library(MAST)
+  library(dplyr)
+  
+  # checks
+  stopifnot(ncol(counts) == nrow(df))
+  stopifnot(tx_col %in% colnames(df))
+  
+  # expression matrix (cells x genes)
+  expr <- as.matrix(counts)
+  
+  # ensure binary factor
+  df[[tx_col]] <- factor(df[[tx_col]])
+  
+  # feature metadata
+  fdata <- data.frame(primerid = rownames(expr))
+  
+  # build SingleCellAssay
+  sca <- FromMatrix(
+    exprsArray = log1p(expr),
+    cData = df,
+    fData = fdata
+  )
+  
+  # cell detection rate
+  cdr <- colSums(expr > 0)
+  colData(sca)$cdr <- scale(cdr)
+  
+  # fit hurdle model
+  s <- Sys.time()
+  formula_str <- paste0("~ cdr + ", tx_col)
+  #formula_str <- paste0("~ ", tx_col)
+  zlmFit <- zlm(as.formula(formula_str), sca)
+  
+  # likelihood ratio test
+  lrt <- lrTest(zlmFit, "tx_cell")
+  e = Sys.time()
+  delta_time <- as.numeric(difftime(e, s, units = "secs"))
+  
+  # p-values
+  pvals <- lrt %>%
+    as.data.frame() %>%
+    dplyr::select("hurdle.Pr(>Chisq)")
+  
+  out <- tibble::tibble(
+    `Estimate`   = NA,
+    `Std. Error` = NA,
+    `t value`    = NA,
+    `Pr(>|t|)`   = pvals[,1],
+    `Time`       = delta_time
+  )
+  out <- as.matrix(out)
+  out
+}
+
 
 mast.mult <- function(count, df){
   

@@ -322,3 +322,12 @@ final_plot
 
 ggsave(paste0("all_figures/scaling_and_sim/supp_devil_comparison.png"), final_plot, width = 8, height = 8, dpi = 600, units = "in")
 ggsave(paste0("all_figures/scaling_and_sim/supp_devil_comparison.pdf"), final_plot, width = 8, height = 8, units = "in")
+
+# pAUC and pLambda #####
+pA = readRDS("de_analysis/nullpower/figures/RDS/pLambda.rds")
+pB = readRDS("de_analysis/nullpower/figures/RDS/pAUC.rds")
+
+final_plot = pA + pB + plot_layout(nrow = 1) + plot_annotation(tag_levels = "A") & MY_THEME
+
+ggsave(paste0("all_figures/scaling_and_sim/lambda_and_auc.png"), final_plot, width = 15, height = 9, dpi = 600, units = "in")
+ggsave(paste0("all_figures/scaling_and_sim/lambda_and_auc.pdf"), final_plot, width = 15, height = 9, units = "in")
