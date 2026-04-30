@@ -24,6 +24,10 @@ pAB = (pA + theme(legend.direction='vertical', legend.position = "bottom", legen
   (pB + theme(legend.position = "none")) +
   plot_layout(guides = "collect")
 
+p15mill = readRDS("timing_scaling/img/RDS/MacaqueBrain/large.RDS") + MY_THEME +
+  theme(legend.direction = "vertical") +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE))
+
 pC = readRDS("de_analysis/nullpower/figures/RDS/main/qq_plot.rds") +
   MY_THEME +
   theme(legend.position = "right")
@@ -41,31 +45,51 @@ pE = readRDS("de_analysis/nullpower/figures/RDS/main/MCC_boxplot.rds") +
   theme(legend.position = "none")
 
 # design = "
-# AAAAA
-# AAAAA
-# AAAAA
-# AAAAA
-# ##CCC
-# ##CCC
-# ##DDD
-# ##DDD
-# EEEEE
-# EEEEE
-# EEEEE
-# EEEEE"
+# AAAA
+# AAAA
+# BCCC
+# BCCC
+# #CCC
+# #DDD
+# #DDD"
+# 
+# design = "
+# AAAA
+# AAAA
+# AAAA
+# BCCC
+# BCCC
+# BCCC
+# #CCC
+# #DDD
+# #DDD
+# #DDD"
 
 design = "
-AAA
-AAA
-#BB
-#BB
-#BB
-DDD
-DDD
-"
+AAAA
+AAAA
+AAAA
+AAAA
+AAAA
+AAAA
+AAAA
+BCCC
+BCCC
+BCCC
+BCCC
+BCCC
+BCCC
+#CCC
+#CCC
+#DDD
+#DDD
+#DDD
+#DDD
+#DDD
+#DDD"
 
 library(patchwork)
-final_plot = free(pAB) +
+final_plot = free(pAB) + p15mill +
   free(pCD) +
   free(pE) +
   plot_layout(design = design) +
@@ -80,74 +104,162 @@ final_plot = free(pAB) +
   )
 
 ggsave(filename = "all_figures/scaling_and_sim/main_2_v0.pdf", plot = final_plot, dpi = 600, width = 11.7, height = 11.7, units = "in")
+
+# design = "
+# AAA
+# AAA
+# #BB
+# #BB
+# #BB
+# DDD
+# DDD
+# "
+
+# library(patchwork)
+# final_plot = free(pAB) +
+#   free(pCD) +
+#   free(pE) +
+#   plot_layout(design = design) +
+#   plot_annotation(tag_levels = list(c("A", "", "C", "D", "E"))) &
+#   theme(
+#     text = element_text(size = 12),
+#     legend.title = element_text(face = "bold"),
+#     plot.tag = element_text(face = 'bold'),
+#     strip.text = element_text(face = "bold"),
+#     strip.background = element_rect(fill = "gray90"),
+#     panel.grid.minor = element_blank()
+#   )
+# 
+# ggsave(filename = "all_figures/scaling_and_sim/main_2_v0.pdf", plot = final_plot, dpi = 600, width = 11.7, height = 11.7, units = "in")
 rm(pA, pAB, pC, pD, pE, pB, pCD, final_plot, design)
 
 # EXTENDED ####
 # Use MacaqueBrain and HSC
-pA = readRDS("timing_scaling/img/RDS/MacaqueBrain/correlation.RDS") + theme(legend.position = "bottom")
-pB = readRDS("timing_scaling/img/RDS/MacaqueBrain/venn_plot.RDS")
-pC = readRDS("timing_scaling/img/RDS/MacaqueBrain/large.RDS") +
-  theme(legend.direction='horizontal',
-        legend.position = "bottom",
-        legend.box = "vertical",
-        legend.spacing.y = unit(0, "pt"),
-        legend.spacing.x = unit(1, "pt"),
-        legend.box.margin = margin(0, 0, 0, 0)) +
-  guides(color = guide_legend(ncol = 2))
+# pA = readRDS("timing_scaling/img/RDS/MacaqueBrain/correlation.RDS") + theme(legend.position = "bottom")
+# pB = readRDS("timing_scaling/img/RDS/MacaqueBrain/venn_plot.RDS")
+# pC = readRDS("timing_scaling/img/RDS/MacaqueBrain/large.RDS") +
+#   theme(legend.direction='horizontal',
+#         legend.position = "bottom",
+#         legend.box = "vertical",
+#         legend.spacing.y = unit(0, "pt"),
+#         legend.spacing.x = unit(1, "pt"),
+#         legend.box.margin = margin(0, 0, 0, 0)) +
+#   guides(color = guide_legend(ncol = 2))
 
-pFG = readRDS("de_analysis/nullpower/figures/RDS/main/ecfd_ks_plot.rds") +
-  MY_THEME +
-  theme(legend.position = "bottom")
-pH = readRDS("de_analysis/nullpower/figures/RDS/main/ptiming_ratio.rds")
-
-design = "
-AAAAABBB
-AAAAABBB
-AAAAACCC
-AAAAACCC
-AAAAACCC
-FFFFFHHH
-FFFFFHHH
-FFFFFHHH"
-
-final_plot = free(pA) + free(pB) + free(pC) +
-  free(pFG) + free(pH) +
-  plot_layout(design = design) +
-  plot_annotation(tag_levels = "A") &
-  theme(
-    text = element_text(size = 12),
-    plot.tag = element_text(face = 'bold'),
-    legend.title = element_text(face = "bold"),
-    strip.text = element_text(face = "bold"),
-    strip.background = element_rect(fill = "gray90"),
-    panel.grid.minor = element_blank()
-  )
-# final_plot
-ggsave(filename = "all_figures/scaling_and_sim/ext_2.pdf", plot = final_plot, dpi = 600, width = 13.7, height = 12, units = "in")
-rm(pAB, pC, pFG, pH, final_plot, design)
+# pFG = readRDS("de_analysis/nullpower/figures/RDS/main/ecfd_ks_plot.rds") +
+#   MY_THEME +
+#   theme(legend.position = "bottom")
+# pH = readRDS("de_analysis/nullpower/figures/RDS/main/ptiming_ratio.rds")
+# 
+# design = "
+# AAAAA###
+# AAAAABBB
+# AAAAABBB
+# AAAAABBB
+# AAAAA###
+# FFFFFHHH
+# FFFFFHHH
+# FFFFFHHH"
+# 
+# final_plot = free(pA) + free(pB) +
+#   free(pFG) + free(pH) +
+#   plot_layout(design = design) +
+#   plot_annotation(tag_levels = "A") &
+#   theme(
+#     text = element_text(size = 12),
+#     plot.tag = element_text(face = 'bold'),
+#     legend.title = element_text(face = "bold"),
+#     strip.text = element_text(face = "bold"),
+#     strip.background = element_rect(fill = "gray90"),
+#     panel.grid.minor = element_blank()
+#   )
+# # final_plot
+# ggsave(filename = "all_figures/scaling_and_sim/ext_2.pdf", plot = final_plot, dpi = 600, width = 13.7, height = 12, units = "in")
+# rm(pAB, pC, pFG, pH, final_plot, design)
 
 # SUPP SCALING ####
-## Times and Memory ####
-pA = readRDS("timing_scaling/img/RDS/MacaqueBrain/speedup.RDS") +
-  theme(legend.direction='horizontal', legend.position = "bottom", legend.box = "vertical")
-pB = readRDS("timing_scaling/img/RDS/MacaqueBrain/memory_ratio.RDS") +
-  theme(legend.direction='horizontal', legend.position = "bottom", legend.box = "vertical")
+# ## Times and Memory ####
+# pA = readRDS("timing_scaling/img/RDS/MacaqueBrain/speedup.RDS") +
+#   theme(legend.direction='horizontal', legend.position = "bottom", legend.box = "vertical")
+# pB = readRDS("timing_scaling/img/RDS/MacaqueBrain/memory_ratio.RDS") +
+#   theme(legend.direction='horizontal', legend.position = "bottom", legend.box = "vertical")
+# 
+# pC = readRDS("timing_scaling/img/RDS/MacaqueBrain/correlation.RDS") + theme(legend.position = "bottom")
+# pD = readRDS("timing_scaling/img/RDS/MacaqueBrain/venn_plot.RDS")
+# 
+# design = "
+# AAAAAAAA
+# AAAAAAAA
+# BBBBBBBB
+# BBBBBBBB
+# CCCCC###
+# CCCCCDDD
+# CCCCCDDD
+# CCCCCDDD
+# CCCCC###
+# "
+# 
+# final_plot = (pA + theme(legend.direction='vertical', legend.position = "right", legend.box = "horizontal")) +
+#   (pB + theme(legend.position = "none")) +
+#   (pC) + pD + 
+#   plot_layout(design = design) +
+#   plot_annotation(tag_levels = list(c("A", "B"))) &
+#   theme(
+#     text = element_text(size = 12),
+#     plot.tag = element_text(face = 'bold'),
+#     legend.title = element_text(face = "bold"),
+#     strip.text = element_text(face = "bold"),
+#     strip.background = element_rect(fill = "gray90"),
+#     panel.grid.minor = element_blank()
+#   )
+# final_plot
+# ggsave(filename = "all_figures/scaling_and_sim/supp_scaling_macaqueBrain.pdf", plot = final_plot, dpi = 600, width = 11, height = 11, units = "in")
+# rm(pAB, pCD, final_plot, pA, pB, pC, pD)
 
-final_plot = (pA + theme(legend.direction='vertical', legend.position = "bottom", legend.box = "horizontal")) +
+## Big dataset ####
+dataset_name = "MacaqueBrain"
+
+path_to_rds = file.path("timing_scaling/img/RDS/", dataset_name)
+pA = readRDS(file.path(path_to_rds, "runtime.RDS"))
+pB = readRDS(file.path(path_to_rds, "speedup.RDS"))
+pAB = (pA + theme(legend.direction='vertical', legend.position = "bottom", legend.box = "horizontal")) +
   (pB + theme(legend.position = "none")) +
-  plot_layout(guides = "collect", nrow = 1) +
-  plot_annotation(tag_levels = list(c("A", "B"))) &
+  plot_layout(guides = "collect")
+pC = readRDS(file.path(path_to_rds, "memory.RDS"))
+pD = readRDS(file.path(path_to_rds, "memory_ratio.RDS"))
+pCD = (pC + theme(legend.direction='vertical', legend.position = "bottom", legend.box = "horizontal")) +
+  (pD + theme(legend.position = "none")) +
+  plot_layout(guides = "collect")
+pEF = readRDS(file.path(path_to_rds, "correlation.RDS"))
+pG = readRDS(file.path(path_to_rds, "venn_plot.RDS"))
+
+design = "
+AAAAAA
+AAAAAA
+CCCCCC
+CCCCCC
+EEEEGG
+EEEEGG
+EEEEGG
+EEEEGG"
+
+
+supp_fig = free(pAB) + free(pCD) +
+  free(pEF) + free(pG) +
+  plot_layout(design = design) +
+  plot_annotation(tag_levels = list(c("A", "", "B", "", "C", "D"))) &
   theme(
     text = element_text(size = 12),
     plot.tag = element_text(face = 'bold'),
     legend.title = element_text(face = "bold"),
     strip.text = element_text(face = "bold"),
     strip.background = element_rect(fill = "gray90"),
-    panel.grid.minor = element_blank()
+    panel.grid.minor = element_blank(),
+    legend.spacing.y = unit(0, "pt"),
+    legend.spacing.x = unit(1, "pt"),
+    legend.box.margin = margin(0, 0, 0, 0)
   )
-final_plot
-ggsave(filename = "all_figures/scaling_and_sim/supp_scaling_times_and_memory.pdf", plot = final_plot, dpi = 600, width = 11, height = 5, units = "in")
-rm(pAB, pCD, final_plot, pA, pB, pC, pD)
+ggsave(filename = paste0("all_figures/scaling_and_sim/supp_scaling_",dataset_name,".pdf"), plot = supp_fig, dpi = 600, width = 12.7, height = 12.7, units = "in")
 
 
 ## Small dataset ####
@@ -172,6 +284,7 @@ AAAAAA
 AAAAAA
 CCCCCC
 CCCCCC
+EEEEGG
 EEEEGG
 EEEEGG
 EEEEGG"
