@@ -2,6 +2,7 @@
 rm(list = ls())
 library(patchwork)
 library(ggplot2)
+library(ggrastr)
 
 hm = readRDS("figures/hm_interaction.rds")
 hm = ggplotify::as.ggplot(hm)
@@ -20,11 +21,23 @@ umap_glm_private = umaps$`glmGamPoi private` +
   scale_color_manual(values = c("Old - Type I" = "goldenrod3", "Young - Type I" = "#483D8B")) +
   theme(legend.position = "right", legend.title.position = "top") +
   guides(colour = guide_legend(override.aes = list(size=2, alpha=1)))
+umap = umap_glm_private
+umap$layers[[1]]$aes_params$stroke <- 0
+umap$layers[[1]]$aes_params$size <- 1.5
+umap <- rasterise(umap, layers = "Point", dpi = 600)
+umap_glm_private = umap
 
 umap_glm_devil_shared = umaps$`glmGamPoi and devil` +
   scale_color_manual(values = c("Old - Type I" = "goldenrod3", "Young - Type I" = "#483D8B")) +
   theme(legend.position = "right", legend.title.position = "top") +
   guides(colour = guide_legend(override.aes = list(size=2, alpha=1)))
+
+umap = umap_glm_devil_shared
+umap$layers[[1]]$aes_params$stroke <- 0
+umap$layers[[1]]$aes_params$size <- 1.5
+umap <- rasterise(umap, layers = "Point", dpi = 600)
+umap_glm_devil_shared = umap
+
 
 bar_plot_gsea = readRDS("results/MuscleRNA/per_contrast_vector_analysis/sub_v_full_comparison/age_type1/venn_bar_plot_gsea.RDS")
 
@@ -70,8 +83,11 @@ p = patchwork::free(hm) +
   #patchwork::free(bar_venn_plot) + patchwork::free(umap_glm_private) + patchwork::free(umap_glm_devil_shared) +
   patchwork::free(bar_venn_plot) + umaps +
   plot_layout(design = des) +
-  plot_annotation(tag_levels = "A") & 
+  plot_annotation(tag_levels = "a") & 
   theme(text = element_text(size = 12), plot.tag = element_text(face = "bold"))
 p
+
+ggsave("~/Downloads/Figure6_new.pdf", plot = p, width = 16, height = 12, units = "in")
+
 ggsave("figures/extended.pdf", plot = p, width = 16, height = 12, units = "in")
 ggsave("figures/extended.png", plot = p, width = 16, height = 12, units = "in", dpi = 450)

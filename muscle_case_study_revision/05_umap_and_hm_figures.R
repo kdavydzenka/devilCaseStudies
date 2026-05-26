@@ -34,11 +34,10 @@ gene_markers_paper <- c("TNNT1", "MYH7", "MYH7B", "TNNT2", "PDE4B", "JUN", "FOSB
                   "DCLK1", "ADGRB3", "NCAM1", "COL22A1", "PHLDB2", "CHRNE")
 
 gene_markers = c(gene_markers, gene_markers_paper)
+gene_markers = unique(gene_markers)
 
 de_res_top = de_res %>% 
   dplyr::filter(name %in% gene_markers)
-de_res_top %>% ggplot(mapping = aes(x = lfc, y = -log10(adj_pval))) +
-  geom_point()
 
 set.seed(1234)
 N_subsample <- 10000
@@ -91,6 +90,7 @@ col_fun <- circlize::colorRamp2(
 #col_fun = circlize::colorRamp2(c(-.5, 0, 1.7), c("steelblue", "white", "firebrick"))
 
 ## Young pop ####
+library(ComplexHeatmap)
 anno = as.data.frame(meta$Age)
 colnames(anno) = "Age"
 anno$Sample = meta$sample
@@ -287,7 +287,7 @@ ha = HeatmapAnnotation(
   )
 )
 
-
+mat.scaled = unique(mat.scaled)
 # Build row labels: show name only if it's in the paper list
 row_lab <- rownames(mat.scaled)
 row_lab[!row_lab %in% gene_markers_paper] <- ""

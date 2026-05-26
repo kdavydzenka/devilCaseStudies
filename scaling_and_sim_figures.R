@@ -424,7 +424,6 @@ pB = readRDS("de_analysis/nullpower/figures/RDS/devil_comparison/ptiming_ratio.r
 des = "
 AAAAA
 AAAAA
-AAAAA
 #BBB#
 #BBB#
 "
@@ -434,7 +433,7 @@ final_plot = pA + free(pB) +
 final_plot
 
 ggsave(paste0("all_figures/scaling_and_sim/supp_devil_comparison.png"), final_plot, width = 8, height = 8, dpi = 600, units = "in")
-ggsave(paste0("all_figures/scaling_and_sim/supp_devil_comparison.pdf"), final_plot, width = 8, height = 8, units = "in")
+ggsave(paste0("all_figures/scaling_and_sim/supp_devil_comparison.pdf"), final_plot, width = 12, height = 12, units = "in")
 
 # pAUC and pLambda #####
 pA = readRDS("de_analysis/nullpower/figures/RDS/pLambda.rds")

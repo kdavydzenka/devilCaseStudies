@@ -17,7 +17,8 @@ cw_table <- res %>%
   dplyr::summarise(
     across(
       c(MCC), # Explicitly list the columns
-      ~sprintf("%.3f ± %.3f", median(.), sd(.)), # Compute mean ± sd with 3 significant digits
+      #~sprintf("%.3f ± %.3f", median(.), sd(.)), # Compute mean ± sd with 3 significant digits
+      ~sprintf("%.3f [%.3f, %.3f]", median(.), quantile(., .05), quantile(., .95)), # Compute mean ± sd with 3 significant digits
       .names = "{.col}" # Column naming
     ),
     .groups = "drop"
@@ -34,7 +35,8 @@ pw_table <- res %>%
   dplyr::summarise(
     across(
       c(MCC), # Explicitly list the columns
-      ~sprintf("%.3f ± %.3f", median(.), sd(.)), # Compute mean ± sd with 3 significant digits
+      # ~sprintf("%.3f ± %.3f", median(.), sd(.)), # Compute mean ± sd with 3 significant digits
+      ~sprintf("%.3f [%.3f, %.3f]", median(.), quantile(., .05), quantile(., .95)), # Compute mean ± sd with 3 significant digits
       .names = "{.col}" # Column naming
     ),
     .groups = "drop"
@@ -67,8 +69,25 @@ time_df = res %>%
     .groups = "drop"
   )
 
+time_ratio_df = res %>% 
+  dplyr::filter(name %in% methods) %>% 
+  dplyr::group_by(idx, ct.index, patients, author) %>% 
+  dplyr::mutate(ratio_time = Time / Time[name == "devil (MOM-NB)"]) %>% 
+  dplyr::group_by(name, author, patients) %>% 
+  dplyr::summarise(across(
+    c(ratio_time), # Explicitly list the columns
+    ~sprintf("%.3f [%.3f, %.3f]", median(.), quantile(., .05), quantile(., .95)), # Compute mean ± sd with 3 significant digits
+    .names = "{.col}" # Column naming
+  ))
+
+time_ratio_df = time_ratio_df %>% 
+  tidyr::pivot_wider(values_from = ratio_time, names_from = name)
+
 time_df = time_df %>% 
   tidyr::pivot_wider(values_from = Time, names_from = name)
 
 write.csv(time_df, "final_res/timing.csv")
 sheet_write(time_df, ss = "https://docs.google.com/spreadsheets/d/1xRKVD-H5w2YOISFDRALWH7uYbvrLAgIfhZpRrGQ95gU", sheet = "Patient and Cell-wise timing")
+
+write.csv(time_ratio_df, "final_res/timing.csv")
+sheet_write(time_ratio_df, ss = "https://docs.google.com/spreadsheets/d/1xRKVD-H5w2YOISFDRALWH7uYbvrLAgIfhZpRrGQ95gU", sheet = "Patient and Cell-wise timing ratio")

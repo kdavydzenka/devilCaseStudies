@@ -143,6 +143,9 @@ plot_MCCs_boxplots_across_authors = function(methods) {
       name = factor(name, levels = METHOD_LEVELS)
     )
   
+  df %>% dplyr::group_by(name, author, analysis, patients) %>% 
+    dplyr::summarise(n = n())
+  
   df %>%
     ggplot(aes(x = author, y = MCC, color = name)) +
     geom_boxplot(outlier.shape = NA, width = .7) +
@@ -162,7 +165,7 @@ plot_MCCs_boxplots_across_authors = function(methods) {
     ggpubr::stat_compare_means(
       aes(group = name),
       method = "wilcox.test",
-      label = "p.signif", show.legend = F, label.y = 1.02
+      label = "p.format", show.legend = F, label.y = 1.02
     )
 }
 
